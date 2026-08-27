@@ -171,3 +171,30 @@ export async function actionUpdateSystemSettings(settings: {
 }) {
   return queries.updateSystemSettings(settings);
 }
+
+export async function actionCreateDistrict(data: {
+  regency_id: string;
+  name: string;
+  code: string;
+  coordinator: string;
+  target_teachers?: number;
+  target_students?: number;
+  status?: 'Planning' | 'Ready' | 'Ongoing' | 'Completed';
+  notes?: string;
+}) {
+  return queries.createDistrict(data);
+}
+
+export async function actionCreateSchool(data: {
+  regency_id: string;
+  district_id: string;
+  name: string;
+  school_level?: string;
+  address?: string;
+  principal?: string;
+  teacher_participants?: number;
+  student_participants?: number;
+  notes?: string;
+}) {
+  return queries.createSchool(data);
+}

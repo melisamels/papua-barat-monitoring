@@ -209,13 +209,87 @@ export function getRegencyById(id: string) {
   const districts = getDistricts(id);
   const schools = getSchools({ regency_id: id });
   const trainings = getTrainings({ regency_id: id });
+  const trainingIds = new Set(trainings.map(t => t.id));
+  const documentation = store.documentation.filter(d => trainingIds.has(d.training_id));
+  const documents = store.documents.filter(d => d.regency_id === id || (d.training_id && trainingIds.has(d.training_id)));
 
   return toPlain({
     ...regency,
     districts,
     schools,
     trainings,
+    documentation,
+    documents,
   });
+}
+
+// CREATE DISTRICT (#11)
+export function createDistrict(data: {
+  regency_id: string;
+  name: string;
+  code: string;
+  coordinator: string;
+  target_teachers?: number;
+  target_students?: number;
+  status?: TrainingStatus;
+  notes?: string;
+}): District {
+  const reg = store.regencies.find(r => r.id === data.regency_id);
+  const regCode = reg?.code || 'REG';
+  const id = `dis-${regCode.toLowerCase()}-${Date.now().toString(36)}`;
+  
+  const newDistrict: District = {
+    id,
+    regency_id: data.regency_id,
+    name: data.name.trim(),
+    code: data.code.trim().toUpperCase(),
+    coordinator: data.coordinator.trim(),
+    target_teachers: data.target_teachers ?? 30,
+    target_students: data.target_students ?? 90,
+    status: data.status || 'Planning',
+    notes: data.notes?.trim() || undefined,
+    regency_name: reg?.name || '',
+  };
+
+  store.districts.push(newDistrict);
+  logAudit('Create', 'Distrik', id, 'Admin', 'usr-admin-01', undefined, `Tambah distrik baru: ${data.name} (${reg?.name})`);
+  return toPlain(newDistrict);
+}
+
+// CREATE SCHOOL (#12)
+export function createSchool(data: {
+  regency_id: string;
+  district_id: string;
+  name: string;
+  school_level?: string;
+  address?: string;
+  principal?: string;
+  teacher_participants?: number;
+  student_participants?: number;
+  notes?: string;
+}): School {
+  const reg = store.regencies.find(r => r.id === data.regency_id);
+  const dist = store.districts.find(d => d.id === data.district_id);
+  const id = `sch-${Date.now().toString(36)}`;
+
+  const newSchool: School = {
+    id,
+    regency_id: data.regency_id,
+    district_id: data.district_id,
+    name: data.name.trim(),
+    school_level: (data.school_level as any) || 'SD',
+    address: data.address?.trim() || '-',
+    principal: data.principal?.trim() || '-',
+    teacher_participants: data.teacher_participants ?? 15,
+    student_participants: data.student_participants ?? 45,
+    notes: data.notes?.trim() || undefined,
+    regency_name: reg?.name || '',
+    district_name: dist?.name || '',
+  };
+
+  store.schools.push(newSchool);
+  logAudit('Create', 'Sekolah', id, 'Admin', 'usr-admin-01', undefined, `Tambah sekolah baru: ${data.name} di ${dist?.name}`);
+  return toPlain(newSchool);
 }
 
 // DISTRICTS (DISTRIK) LIST (#11)
