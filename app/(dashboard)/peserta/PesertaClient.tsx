@@ -58,8 +58,9 @@ export default function PesertaClient({ initialParticipants, schools }: PesertaC
     }
 
     try {
-      const created = await actionCreateParticipant({
-        training_id: 'TRN-MKW-001',
+      const targetTrainingId = 'TRN-MKW-001';
+      const newId = await actionCreateParticipant({
+        training_id: targetTrainingId,
         school_id: schoolId,
         participant_type: pType,
         full_name: fullName.trim(),
@@ -69,11 +70,26 @@ export default function PesertaClient({ initialParticipants, schools }: PesertaC
         notes: notes.trim() || undefined,
       });
 
-      setParticipants(prev => [created, ...prev]);
+      const school = schools.find(s => s.id === schoolId);
+      const newParticipant: Participant = {
+        id: newId,
+        training_id: targetTrainingId,
+        school_id: schoolId,
+        school_name: school?.name,
+        participant_type: pType,
+        full_name: fullName.trim(),
+        gender,
+        class_name: pType === 'siswa' ? className : undefined,
+        attendance_status: 'Hadir',
+        notes: notes.trim() || undefined,
+        created_at: new Date().toISOString(),
+      };
+
+      setParticipants(prev => [newParticipant, ...prev]);
       setShowAddModal(false);
       setFullName('');
       setNotes('');
-      showToast(`Peserta berhasil ditambahkan: ${created.full_name}`);
+      showToast(`Peserta berhasil ditambahkan: ${fullName.trim()}`);
     } catch (err: any) {
       showToast(err.message, 'error');
     }

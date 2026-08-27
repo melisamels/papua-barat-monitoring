@@ -73,7 +73,7 @@ export default function TambahKegiatanClient({ regencies, allDistricts }: Tambah
     }
 
     try {
-      const created = await actionCreateTraining({
+      const createdId = await actionCreateTraining({
         regency_id: regencyId,
         district_id: districtId,
         venue: venue.trim(),
@@ -87,8 +87,8 @@ export default function TambahKegiatanClient({ regencies, allDistricts }: Tambah
         notes: notes.trim() || undefined,
       });
 
-      showToast(`Kegiatan berhasil dibuat: ${created.venue}`);
-      router.push(`/kegiatan/${created.id}`);
+      showToast(`Kegiatan berhasil dibuat`);
+      router.push(`/kegiatan/${createdId}`);
     } catch (err: any) {
       showToast(err.message || 'Gagal membuat kegiatan', 'error');
     }
