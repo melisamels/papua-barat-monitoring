@@ -210,14 +210,24 @@ export function getRegencyById(id: string) {
   const schools = getSchools({ regency_id: id });
   const trainings = getTrainings({ regency_id: id });
   const trainingIds = new Set(trainings.map(t => t.id));
+  const schoolIds = new Set(schools.map(s => s.id));
+
   const documentation = store.documentation.filter(d => trainingIds.has(d.training_id));
   const documents = store.documents.filter(d => d.regency_id === id || (d.training_id && trainingIds.has(d.training_id)));
+  const participants = store.participants.filter(p => trainingIds.has(p.training_id) || schoolIds.has(p.school_id));
+  const budgets = store.budgets.filter(b => trainingIds.has(b.training_id));
+  const realizations = store.realizations.filter(r => trainingIds.has(r.training_id));
+  const budgetCategories = store.budgetCategories;
 
   return toPlain({
     ...regency,
     districts,
     schools,
     trainings,
+    participants,
+    budgets,
+    realizations,
+    budgetCategories,
     documentation,
     documents,
   });
@@ -256,6 +266,21 @@ export function createDistrict(data: {
   return toPlain(newDistrict);
 }
 
+export function updateDistrict(id: string, data: Partial<District>): District {
+  const dist = store.districts.find(d => d.id === id);
+  if (!dist) throw new Error('Distrik tidak ditemukan');
+  Object.assign(dist, data);
+  logAudit('Update', 'Distrik', id, 'Admin', 'usr-admin-01', undefined, `Update distrik ${dist.name}`);
+  return toPlain(dist);
+}
+
+export function deleteDistrict(id: string) {
+  const dist = store.districts.find(d => d.id === id);
+  const name = dist?.name || id;
+  store.districts = store.districts.filter(d => d.id !== id);
+  logAudit('Delete', 'Distrik', id, 'Admin', 'usr-admin-01', undefined, `Hapus distrik ${name}`);
+}
+
 // CREATE SCHOOL (#12)
 export function createSchool(data: {
   regency_id: string;
@@ -290,6 +315,21 @@ export function createSchool(data: {
   store.schools.push(newSchool);
   logAudit('Create', 'Sekolah', id, 'Admin', 'usr-admin-01', undefined, `Tambah sekolah baru: ${data.name} di ${dist?.name}`);
   return toPlain(newSchool);
+}
+
+export function updateSchool(id: string, data: Partial<School>): School {
+  const sch = store.schools.find(s => s.id === id);
+  if (!sch) throw new Error('Sekolah tidak ditemukan');
+  Object.assign(sch, data);
+  logAudit('Update', 'Sekolah', id, 'Admin', 'usr-admin-01', undefined, `Update sekolah ${sch.name}`);
+  return toPlain(sch);
+}
+
+export function deleteSchool(id: string) {
+  const sch = store.schools.find(s => s.id === id);
+  const name = sch?.name || id;
+  store.schools = store.schools.filter(s => s.id !== id);
+  logAudit('Delete', 'Sekolah', id, 'Admin', 'usr-admin-01', undefined, `Hapus sekolah ${name}`);
 }
 
 // DISTRICTS (DISTRIK) LIST (#11)
@@ -711,6 +751,40 @@ export function batchCreateParticipants(
   return count;
 }
 
+export function updateParticipant(id: string, data: Partial<Participant>): Participant {
+  const p = store.participants.find(part => part.id === id);
+  if (!p) throw new Error('Peserta tidak ditemukan');
+  Object.assign(p, data);
+
+  if (p.training_id) {
+    const training = store.trainings.find(t => t.id === p.training_id);
+    if (training) {
+      training.actual_teachers = store.participants.filter(pt => pt.training_id === p.training_id && pt.participant_type === 'guru').length;
+      training.actual_students = store.participants.filter(pt => pt.training_id === p.training_id && pt.participant_type === 'siswa').length;
+    }
+  }
+
+  logAudit('Update', 'Peserta', id, 'Admin', 'usr-admin-01', undefined, `Update peserta ${p.full_name}`);
+  return toPlain(p);
+}
+
+export function deleteParticipant(id: string) {
+  const p = store.participants.find(part => part.id === id);
+  const name = p?.full_name || id;
+  const trainingId = p?.training_id;
+  store.participants = store.participants.filter(part => part.id !== id);
+
+  if (trainingId) {
+    const training = store.trainings.find(t => t.id === trainingId);
+    if (training) {
+      training.actual_teachers = store.participants.filter(pt => pt.training_id === trainingId && pt.participant_type === 'guru').length;
+      training.actual_students = store.participants.filter(pt => pt.training_id === trainingId && pt.participant_type === 'siswa').length;
+    }
+  }
+
+  logAudit('Delete', 'Peserta', id, 'Admin', 'usr-admin-01', undefined, `Hapus peserta ${name}`);
+}
+
 // TRAININGS CRUD (#17, #18)
 export function createTraining(data: {
   program_name?: string;
@@ -838,6 +912,21 @@ export function createBudget(data: {
   return id;
 }
 
+export function updateBudget(id: string, data: Partial<Budget>): Budget {
+  const b = store.budgets.find(bg => bg.id === id);
+  if (!b) throw new Error('Item RAB tidak ditemukan');
+  if (data.category_id) {
+    const cat = store.budgetCategories.find(c => c.id === data.category_id);
+    if (cat) b.category_name = cat.name;
+  }
+  Object.assign(b, data);
+  if (data.volume !== undefined || data.unit_price !== undefined) {
+    b.total = (b.volume || 1) * (b.unit_price || 0);
+  }
+  logAudit('Update', 'RAB', id, 'Finance Admin', 'usr-finance-01', undefined, `Update RAB ${b.description}`);
+  return toPlain(b);
+}
+
 export function deleteBudget(id: string) {
   store.budgets = store.budgets.filter(b => b.id !== id);
   logAudit('Delete', 'RAB', id, 'Finance Admin', 'usr-finance-01', undefined, `Hapus item RAB ${id}`);
@@ -883,6 +972,21 @@ export function createRealization(data: {
 
   logAudit('Create', 'Realisasi', id, 'Finance Admin', 'usr-finance-01', undefined, `Input realisasi ${data.description} Rp ${total.toLocaleString('id-ID')}`);
   return id;
+}
+
+export function updateRealization(id: string, data: Partial<Realization>): Realization {
+  const r = store.realizations.find(rl => rl.id === id);
+  if (!r) throw new Error('Item realisasi tidak ditemukan');
+  if (data.category_id) {
+    const cat = store.budgetCategories.find(c => c.id === data.category_id);
+    if (cat) r.category_name = cat.name;
+  }
+  Object.assign(r, data);
+  if (data.volume !== undefined || data.unit_price !== undefined) {
+    r.total = (r.volume || 1) * (r.unit_price || 0);
+  }
+  logAudit('Update', 'Realisasi', id, 'Finance Admin', 'usr-finance-01', undefined, `Update realisasi ${r.description}`);
+  return toPlain(r);
 }
 
 export function deleteRealization(id: string) {

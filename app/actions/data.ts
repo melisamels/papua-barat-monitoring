@@ -198,3 +198,35 @@ export async function actionCreateSchool(data: {
 }) {
   return queries.createSchool(data);
 }
+
+export async function actionUpdateDistrict(id: string, data: any) {
+  return queries.updateDistrict(id, data);
+}
+
+export async function actionDeleteDistrict(id: string) {
+  return queries.deleteDistrict(id);
+}
+
+export async function actionUpdateSchool(id: string, data: any) {
+  return queries.updateSchool(id, data);
+}
+
+export async function actionDeleteSchool(id: string) {
+  return queries.deleteSchool(id);
+}
+
+export async function actionUpdateParticipant(id: string, data: any) {
+  return queries.updateParticipant(id, data);
+}
+
+export async function actionDeleteParticipant(id: string) {
+  return queries.deleteParticipant(id);
+}
+
+export async function actionUpdateBudget(id: string, data: any) {
+  return queries.updateBudget(id, data);
+}
+
+export async function actionUpdateRealization(id: string, data: any) {
+  return queries.updateRealization(id, data);
+}
