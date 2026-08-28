@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useApp } from '@/components/providers/AppProvider';
@@ -24,6 +24,8 @@ import {
   actionCreateRealization,
   actionUpdateRealization,
   actionDeleteRealization,
+  actionSyncRegencyData,
+  actionResetToDefault,
 } from '@/app/actions/data';
 import { District, School, Training, Participant, Budget, Realization, BudgetCategory, TrainingStatus } from '@/lib/types';
 import {
@@ -42,6 +44,8 @@ import {
   Pencil,
   Trash2,
   Search,
+  RotateCcw,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface RegencyDetailClientProps {
@@ -56,6 +60,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
     'overview' | 'distrik' | 'sekolah' | 'kegiatan' | 'peserta' | 'rab' | 'realisasi' | 'dokumentasi' | 'laporan'
   >('overview');
 
+  const storageKey = `papua_regency_custom_v1_${regency?.id}`;
+  const [isCustomized, setIsCustomized] = useState(false);
+
   // Master Data Local States
   const [districts, setDistricts] = useState<District[]>(regency?.districts || []);
   const [schools, setSchools] = useState<School[]>(regency?.schools || []);
@@ -65,6 +72,62 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
   const [realizations, setRealizations] = useState<Realization[]>(regency?.realizations || []);
   const budgetCategories: BudgetCategory[] = regency?.budgetCategories || [];
   const documentation = regency?.documentation || [];
+
+  // Load persisted custom data from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.is_customized) {
+          setIsCustomized(true);
+          if (Array.isArray(parsed.districts)) setDistricts(parsed.districts);
+          if (Array.isArray(parsed.schools)) setSchools(parsed.schools);
+          if (Array.isArray(parsed.trainings)) setTrainings(parsed.trainings);
+          if (Array.isArray(parsed.participants)) setParticipants(parsed.participants);
+          if (Array.isArray(parsed.budgets)) setBudgets(parsed.budgets);
+          if (Array.isArray(parsed.realizations)) setRealizations(parsed.realizations);
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal memuat data tersimpan dari browser:', e);
+    }
+  }, [storageKey]);
+
+  // Helper function to persist changes permanently both in localStorage and server
+  const persistChanges = (
+    nextDistricts: District[],
+    nextSchools: School[],
+    nextTrainings: Training[],
+    nextParticipants: Participant[],
+    nextBudgets: Budget[],
+    nextRealizations: Realization[]
+  ) => {
+    setIsCustomized(true);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({
+        is_customized: true,
+        districts: nextDistricts,
+        schools: nextSchools,
+        trainings: nextTrainings,
+        participants: nextParticipants,
+        budgets: nextBudgets,
+        realizations: nextRealizations,
+        updated_at: new Date().toISOString(),
+      }));
+    } catch (e) {
+      console.warn('Gagal menyimpan ke localStorage:', e);
+    }
+
+    actionSyncRegencyData(regency.id, {
+      districts: nextDistricts,
+      schools: nextSchools,
+      trainings: nextTrainings,
+      participants: nextParticipants,
+      budgets: nextBudgets,
+      realizations: nextRealizations,
+    }).catch(e => console.warn('Server sync error:', e));
+  };
 
   // Filter & Search states
   const [participantSearch, setParticipantSearch] = useState('');
@@ -176,6 +239,26 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
   const badge = getStatusBadgeClass(regency.status || 'Planning');
   const currentTotalRab = budgets.reduce((acc, b) => acc + (b.total || 0), 0);
   const currentTotalRealization = realizations.reduce((acc, r) => acc + (r.total || 0), 0);
+  const currentTotalTeachers = participants.filter(p => p.participant_type === 'guru').length;
+  const currentTargetTeachers = districts.reduce((acc, d) => acc + (Number(d.target_teachers) || 0), 0);
+  const currentTotalStudents = participants.filter(p => p.participant_type === 'siswa').length;
+  const currentTargetStudents = districts.reduce((acc, d) => acc + (Number(d.target_students) || 0), 0);
+
+  const handleClearAllData = async () => {
+    if (!confirm(`Hapus semua data (distrik, sekolah, kegiatan, peserta, RAB, realisasi) di ${regency.name}? Data akan dikosongkan agar Anda dapat menginput data riil dari nol.`)) return;
+    try {
+      setDistricts([]);
+      setSchools([]);
+      setTrainings([]);
+      setParticipants([]);
+      setBudgets([]);
+      setRealizations([]);
+      persistChanges([], [], [], [], [], []);
+      showToast(`Seluruh data ${regency.name} berhasil dikosongkan. Siap diisi data riil!`);
+    } catch (err: any) {
+      showToast(err.message || 'Gagal mengosongkan data', 'error');
+    }
+  };
 
   // ==========================================
   // 1. HANDLERS: DISTRIK (Add, Edit, Delete)
@@ -196,7 +279,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           status: districtForm.status,
           notes: districtForm.notes.trim() || undefined,
         });
-        setDistricts(prev => prev.map(d => d.id === editingDistrict.id ? { ...d, ...updated } : d));
+        const nextDistricts = districts.map(d => d.id === editingDistrict.id ? { ...d, ...updated } : d);
+        setDistricts(nextDistricts);
+        persistChanges(nextDistricts, schools, trainings, participants, budgets, realizations);
         setEditingDistrict(null);
         showToast(`Distrik ${districtForm.name} berhasil diperbarui!`);
       } else {
@@ -210,7 +295,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           status: districtForm.status,
           notes: districtForm.notes.trim() || undefined,
         });
-        setDistricts(prev => [created, ...prev]);
+        const nextDistricts = [created, ...districts];
+        setDistricts(nextDistricts);
+        persistChanges(nextDistricts, schools, trainings, participants, budgets, realizations);
         setShowAddDistrictModal(false);
         showToast(`Distrik ${created.name} berhasil ditambahkan!`);
       }
@@ -222,10 +309,26 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
   };
 
   const handleDeleteDistrict = async (d: District) => {
-    if (!confirm(`Hapus distrik "${d.name}"? Seluruh data yang terkait akan terhapus.`)) return;
+    if (!confirm(`Hapus distrik "${d.name}"? Seluruh data sekolah dan kegiatan terkait akan terhapus.`)) return;
     try {
       await actionDeleteDistrict(d.id);
-      setDistricts(prev => prev.filter(item => item.id !== d.id));
+      const nextDistricts = districts.filter(item => item.id !== d.id);
+      const nextSchools = schools.filter(s => s.district_id !== d.id);
+      const nextTrainings = trainings.filter(t => t.district_id !== d.id);
+      const removedSchoolIds = new Set(schools.filter(s => s.district_id === d.id).map(s => s.id));
+      const removedTrainingIds = new Set(trainings.filter(t => t.district_id === d.id).map(t => t.id));
+      const nextParticipants = participants.filter(p => !removedSchoolIds.has(p.school_id) && !removedTrainingIds.has(p.training_id));
+      const nextBudgets = budgets.filter(b => !removedTrainingIds.has(b.training_id));
+      const nextRealizations = realizations.filter(r => !removedTrainingIds.has(r.training_id));
+
+      setDistricts(nextDistricts);
+      setSchools(nextSchools);
+      setTrainings(nextTrainings);
+      setParticipants(nextParticipants);
+      setBudgets(nextBudgets);
+      setRealizations(nextRealizations);
+
+      persistChanges(nextDistricts, nextSchools, nextTrainings, nextParticipants, nextBudgets, nextRealizations);
       showToast(`Distrik ${d.name} berhasil dihapus.`);
     } catch (err: any) {
       showToast(err.message || 'Gagal menghapus distrik', 'error');
@@ -254,7 +357,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           student_participants: Number(schoolForm.student_participants),
           notes: schoolForm.notes.trim() || undefined,
         });
-        setSchools(prev => prev.map(s => s.id === editingSchool.id ? { ...s, ...updated } : s));
+        const nextSchools = schools.map(s => s.id === editingSchool.id ? { ...s, ...updated } : s);
+        setSchools(nextSchools);
+        persistChanges(districts, nextSchools, trainings, participants, budgets, realizations);
         setEditingSchool(null);
         showToast(`Sekolah ${schoolForm.name} berhasil diperbarui!`);
       } else {
@@ -269,7 +374,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           student_participants: Number(schoolForm.student_participants),
           notes: schoolForm.notes.trim() || undefined,
         });
-        setSchools(prev => [created, ...prev]);
+        const nextSchools = [created, ...schools];
+        setSchools(nextSchools);
+        persistChanges(districts, nextSchools, trainings, participants, budgets, realizations);
         setShowAddSchoolModal(false);
         showToast(`Sekolah ${created.name} berhasil ditambahkan!`);
       }
@@ -284,7 +391,11 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
     if (!confirm(`Hapus sekolah "${s.name}"?`)) return;
     try {
       await actionDeleteSchool(s.id);
-      setSchools(prev => prev.filter(item => item.id !== s.id));
+      const nextSchools = schools.filter(item => item.id !== s.id);
+      const nextParticipants = participants.filter(p => p.school_id !== s.id);
+      setSchools(nextSchools);
+      setParticipants(nextParticipants);
+      persistChanges(districts, nextSchools, trainings, nextParticipants, budgets, realizations);
       showToast(`Sekolah ${s.name} berhasil dihapus.`);
     } catch (err: any) {
       showToast(err.message || 'Gagal menghapus sekolah', 'error');
@@ -310,7 +421,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
         status: trainingForm.status,
         notes: trainingForm.notes.trim() || undefined,
       });
-      setTrainings(prev => prev.map(t => t.id === editingTraining.id ? { ...t, ...trainingForm } : t));
+      const nextTrainings = trainings.map(t => t.id === editingTraining.id ? { ...t, ...trainingForm } : t);
+      setTrainings(nextTrainings);
+      persistChanges(districts, schools, nextTrainings, participants, budgets, realizations);
       setEditingTraining(null);
       showToast(`Kegiatan ${trainingForm.venue} berhasil diperbarui!`);
     } catch (err: any) {
@@ -324,7 +437,17 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
     if (!confirm(`Hapus kegiatan di "${t.venue}"? Seluruh RAB, realisasi, dan data LPJ terkait akan dihapus.`)) return;
     try {
       await actionDeleteTraining(t.id);
-      setTrainings(prev => prev.filter(item => item.id !== t.id));
+      const nextTrainings = trainings.filter(item => item.id !== t.id);
+      const nextParticipants = participants.filter(p => p.training_id !== t.id);
+      const nextBudgets = budgets.filter(b => b.training_id !== t.id);
+      const nextRealizations = realizations.filter(r => r.training_id !== t.id);
+
+      setTrainings(nextTrainings);
+      setParticipants(nextParticipants);
+      setBudgets(nextBudgets);
+      setRealizations(nextRealizations);
+
+      persistChanges(districts, schools, nextTrainings, nextParticipants, nextBudgets, nextRealizations);
       showToast(`Kegiatan ${t.venue} berhasil dihapus.`);
     } catch (err: any) {
       showToast(err.message || 'Gagal menghapus kegiatan', 'error');
@@ -348,7 +471,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           attendance_status: participantForm.attendance_status,
           notes: participantForm.notes.trim() || undefined,
         });
-        setParticipants(prev => prev.map(p => p.id === editingParticipant.id ? { ...p, ...updated } : p));
+        const nextParticipants = participants.map(p => p.id === editingParticipant.id ? { ...p, ...updated } : p);
+        setParticipants(nextParticipants);
+        persistChanges(districts, schools, trainings, nextParticipants, budgets, realizations);
         setEditingParticipant(null);
         showToast(`Peserta ${participantForm.full_name} berhasil diperbarui!`);
       } else {
@@ -378,7 +503,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           notes: participantForm.notes.trim() || undefined,
           created_at: new Date().toISOString(),
         };
-        setParticipants(prev => [newPart, ...prev]);
+        const nextParticipants = [newPart, ...participants];
+        setParticipants(nextParticipants);
+        persistChanges(districts, schools, trainings, nextParticipants, budgets, realizations);
         setShowAddParticipantModal(false);
         showToast(`Peserta ${participantForm.full_name} berhasil ditambahkan!`);
       }
@@ -393,7 +520,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
     if (!confirm(`Hapus peserta "${p.full_name}"?`)) return;
     try {
       await actionDeleteParticipant(p.id);
-      setParticipants(prev => prev.filter(item => item.id !== p.id));
+      const nextParticipants = participants.filter(item => item.id !== p.id);
+      setParticipants(nextParticipants);
+      persistChanges(districts, schools, trainings, nextParticipants, budgets, realizations);
       showToast(`Peserta ${p.full_name} berhasil dihapus.`);
     } catch (err: any) {
       showToast(err.message || 'Gagal menghapus peserta', 'error');
@@ -421,7 +550,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           total,
           notes: budgetForm.notes.trim() || undefined,
         });
-        setBudgets(prev => prev.map(b => b.id === editingBudget.id ? { ...b, ...updated } : b));
+        const nextBudgets = budgets.map(b => b.id === editingBudget.id ? { ...b, ...updated } : b);
+        setBudgets(nextBudgets);
+        persistChanges(districts, schools, trainings, participants, nextBudgets, realizations);
         setEditingBudget(null);
         showToast(`Item RAB berhasil diperbarui!`);
       } else {
@@ -450,7 +581,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           notes: budgetForm.notes.trim() || undefined,
           created_at: new Date().toISOString(),
         };
-        setBudgets(prev => [newBgt, ...prev]);
+        const nextBudgets = [newBgt, ...budgets];
+        setBudgets(nextBudgets);
+        persistChanges(districts, schools, trainings, participants, nextBudgets, realizations);
         setShowAddBudgetModal(false);
         showToast(`Item RAB berhasil ditambahkan!`);
       }
@@ -465,7 +598,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
     if (!confirm(`Hapus item anggaran "${b.description}"?`)) return;
     try {
       await actionDeleteBudget(b.id);
-      setBudgets(prev => prev.filter(item => item.id !== b.id));
+      const nextBudgets = budgets.filter(item => item.id !== b.id);
+      setBudgets(nextBudgets);
+      persistChanges(districts, schools, trainings, participants, nextBudgets, realizations);
       showToast(`Item RAB berhasil dihapus.`);
     } catch (err: any) {
       showToast(err.message || 'Gagal menghapus item RAB', 'error');
@@ -496,7 +631,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           total,
           notes: realizationForm.notes.trim() || undefined,
         });
-        setRealizations(prev => prev.map(r => r.id === editingRealization.id ? { ...r, ...updated } : r));
+        const nextRealizations = realizations.map(r => r.id === editingRealization.id ? { ...r, ...updated } : r);
+        setRealizations(nextRealizations);
+        persistChanges(districts, schools, trainings, participants, budgets, nextRealizations);
         setEditingRealization(null);
         showToast(`Item realisasi berhasil diperbarui!`);
       } else {
@@ -531,7 +668,9 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
           created_by: currentUser.full_name,
           created_at: new Date().toISOString(),
         };
-        setRealizations(prev => [newRlz, ...prev]);
+        const nextRealizations = [newRlz, ...realizations];
+        setRealizations(nextRealizations);
+        persistChanges(districts, schools, trainings, participants, budgets, nextRealizations);
         setShowAddRealizationModal(false);
         showToast(`Realisasi berhasil dicatat!`);
       }
@@ -546,10 +685,30 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
     if (!confirm(`Hapus catatan realisasi "${r.description}"?`)) return;
     try {
       await actionDeleteRealization(r.id);
-      setRealizations(prev => prev.filter(item => item.id !== r.id));
+      const nextRealizations = realizations.filter(item => item.id !== r.id);
+      setRealizations(nextRealizations);
+      persistChanges(districts, schools, trainings, participants, budgets, nextRealizations);
       showToast(`Item realisasi berhasil dihapus.`);
     } catch (err: any) {
       showToast(err.message || 'Gagal menghapus realisasi', 'error');
+    }
+  };
+
+  const handleResetToMockData = async () => {
+    if (!confirm('Kembalikan data wilayah ini ke data demo bawaan? Seluruh perubahan riil yang Anda masukkan pada kabupaten ini akan diatur ulang.')) return;
+    try {
+      localStorage.removeItem(storageKey);
+      setIsCustomized(false);
+      setDistricts(regency?.districts || []);
+      setSchools(regency?.schools || []);
+      setTrainings(regency?.trainings || []);
+      setParticipants(regency?.participants || []);
+      setBudgets(regency?.budgets || []);
+      setRealizations(regency?.realizations || []);
+      await actionResetToDefault();
+      showToast('Data wilayah berhasil dikembalikan ke data awal demo.', 'info');
+    } catch {
+      showToast('Gagal mereset data', 'error');
     }
   };
 
@@ -582,13 +741,41 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                 {regency.status}
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Ibukota: <strong className="text-slate-800">{regency.notes?.split(',')[0] || '-'}</strong> • Progress Program: <strong className="text-emerald-700">{regency.progress || 0}%</strong>
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              <p className="text-xs text-slate-500">
+                Ibukota: <strong className="text-slate-800">{regency.notes?.split(',')[0] || '-'}</strong> • Progress Program: <strong className="text-emerald-700">{regency.progress || 0}%</strong>
+              </p>
+              {isCustomized && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  Data Riil Tersimpan
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {isCustomized && perms.canEditMasterData && (
+            <button
+              onClick={handleResetToMockData}
+              className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all border border-slate-200"
+              title="Kembalikan ke data demo bawaan"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset ke Demo</span>
+            </button>
+          )}
+          {perms.canEditMasterData && (
+            <button
+              onClick={handleClearAllData}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold shadow-xs transition-all"
+              title="Hapus semua data bawaan distrik, sekolah, kegiatan, dan peserta untuk mulai input data riil"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Kosongkan Wilayah</span>
+            </button>
+          )}
           {perms.canEditMasterData && (
             <>
               <button
@@ -684,19 +871,19 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-slate-400">Target Guru</span>
                   <div className="text-xl font-black text-slate-800">
-                    {regency.actual_teachers || 0} <span className="text-xs font-normal text-slate-500">/ {regency.target_teachers || 0}</span>
+                    {currentTotalTeachers} <span className="text-xs font-normal text-slate-500">/ {currentTargetTeachers}</span>
                   </div>
                   <span className="text-xs text-emerald-700 font-semibold">
-                    {regency.target_teachers > 0 ? Math.round(((regency.actual_teachers || 0) / regency.target_teachers) * 100) : 0}% Tercapai
+                    {currentTargetTeachers > 0 ? Math.round((currentTotalTeachers / currentTargetTeachers) * 100) : 0}% Tercapai
                   </span>
                 </div>
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-slate-400">Target Siswa</span>
                   <div className="text-xl font-black text-slate-800">
-                    {regency.actual_students || 0} <span className="text-xs font-normal text-slate-500">/ {regency.target_students || 0}</span>
+                    {currentTotalStudents} <span className="text-xs font-normal text-slate-500">/ {currentTargetStudents}</span>
                   </div>
                   <span className="text-xs text-emerald-700 font-semibold">
-                    {regency.target_students > 0 ? Math.round(((regency.actual_students || 0) / regency.target_students) * 100) : 0}% Tercapai
+                    {currentTargetStudents > 0 ? Math.round((currentTotalStudents / currentTargetStudents) * 100) : 0}% Tercapai
                   </span>
                 </div>
               </div>
@@ -755,52 +942,60 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {districts.map(d => (
-                  <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs transition-all space-y-2 text-xs">
-                    <div className="flex items-center justify-between font-bold text-slate-900">
-                      <span className="text-sm">Distrik {d.name}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">Kode: {d.code}</span>
-                        {perms.canEditMasterData && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setEditingDistrict(d);
-                                setDistrictForm({
-                                  name: d.name,
-                                  code: d.code,
-                                  coordinator: d.coordinator,
-                                  target_teachers: d.target_teachers || 30,
-                                  target_students: d.target_students || 90,
-                                  status: d.status,
-                                  notes: d.notes || '',
-                                });
-                              }}
-                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
-                              title="Edit Distrik"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDistrict(d)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                              title="Hapus Distrik"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
+              {districts.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
+                  <Building2 className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700 text-sm">Belum ada data distrik</p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">Data distrik telah dikosongkan. Klik tombol &quot;Tambah Distrik&quot; di atas untuk mulai memasukkan data riil.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {districts.map(d => (
+                    <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs transition-all space-y-2 text-xs">
+                      <div className="flex items-center justify-between font-bold text-slate-900">
+                        <span className="text-sm">Distrik {d.name}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">Kode: {d.code}</span>
+                          {perms.canEditMasterData && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingDistrict(d);
+                                  setDistrictForm({
+                                    name: d.name,
+                                    code: d.code,
+                                    coordinator: d.coordinator,
+                                    target_teachers: d.target_teachers || 30,
+                                    target_students: d.target_students || 90,
+                                    status: d.status,
+                                    notes: d.notes || '',
+                                  });
+                                }}
+                                className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+                                title="Edit Distrik"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDistrict(d)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                title="Hapus Distrik"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-slate-600">Koordinator: <strong className="text-slate-800">{d.coordinator}</strong></div>
+                      <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between items-center">
+                        <span>Target Guru: <strong className="text-slate-800">{d.target_teachers}</strong> Org</span>
+                        <span>Target Siswa: <strong className="text-slate-800">{d.target_students}</strong> Siswa</span>
                       </div>
                     </div>
-                    <div className="text-slate-600">Koordinator: <strong className="text-slate-800">{d.coordinator}</strong></div>
-                    <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between items-center">
-                      <span>Target Guru: <strong className="text-slate-800">{d.target_teachers}</strong> Org</span>
-                      <span>Target Siswa: <strong className="text-slate-800">{d.target_students}</strong> Siswa</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -828,62 +1023,70 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {schools.map(s => (
-                  <div key={s.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-xs transition-all space-y-2 text-xs">
-                    <div className="flex items-center justify-between font-bold text-slate-900">
-                      <span className="text-sm">{s.name}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 text-[10px] font-bold border border-blue-100">{s.school_level}</span>
-                        {perms.canEditMasterData && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setEditingSchool(s);
-                                setSchoolForm({
-                                  district_id: s.district_id,
-                                  name: s.name,
-                                  school_level: s.school_level,
-                                  principal: s.principal || '',
-                                  address: s.address || '',
-                                  teacher_participants: s.teacher_participants || 15,
-                                  student_participants: s.student_participants || 45,
-                                  notes: s.notes || '',
-                                });
-                              }}
-                              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-                              title="Edit Sekolah"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSchool(s)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                              title="Hapus Sekolah"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
+              {schools.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
+                  <GraduationCap className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700 text-sm">Belum ada data sekolah</p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">Belum ada data sekolah di wilayah ini. Klik tombol &quot;Tambah Sekolah&quot; di atas untuk mulai memasukkan data riil.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {schools.map(s => (
+                    <div key={s.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-xs transition-all space-y-2 text-xs">
+                      <div className="flex items-center justify-between font-bold text-slate-900">
+                        <span className="text-sm">{s.name}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 text-[10px] font-bold border border-blue-100">{s.school_level}</span>
+                          {perms.canEditMasterData && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingSchool(s);
+                                  setSchoolForm({
+                                    district_id: s.district_id,
+                                    name: s.name,
+                                    school_level: s.school_level,
+                                    principal: s.principal || '',
+                                    address: s.address || '',
+                                    teacher_participants: s.teacher_participants || 15,
+                                    student_participants: s.student_participants || 45,
+                                    notes: s.notes || '',
+                                  });
+                                }}
+                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                title="Edit Sekolah"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSchool(s)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                title="Hapus Sekolah"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-slate-600">Distrik: <strong className="text-slate-800">{s.district_name || '-'}</strong></div>
-                    <div className="text-slate-600">Kepala Sekolah: <strong className="text-slate-800">{s.principal || '-'}</strong></div>
-                    {s.address && <div className="text-slate-500 text-[11px] truncate">Alamat: {s.address}</div>}
+                      <div className="text-slate-600">Distrik: <strong className="text-slate-800">{s.district_name || '-'}</strong></div>
+                      <div className="text-slate-600">Kepala Sekolah: <strong className="text-slate-800">{s.principal || '-'}</strong></div>
+                      {s.address && <div className="text-slate-500 text-[11px] truncate">Alamat: {s.address}</div>}
 
-                    <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-center text-[11px]">
-                      <div className="p-1.5 bg-emerald-50 text-emerald-800 rounded-lg font-semibold">
-                        <span>Siswa: </span>
-                        <strong className="text-xs font-black">{s.student_participants || 0} Siswa</strong>
-                      </div>
-                      <div className="p-1.5 bg-amber-50 text-amber-800 rounded-lg font-semibold">
-                        <span>Guru: </span>
-                        <strong className="text-xs font-black">{s.teacher_participants || 0} Guru</strong>
+                      <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-center text-[11px]">
+                        <div className="p-1.5 bg-emerald-50 text-emerald-800 rounded-lg font-semibold">
+                          <span>Siswa: </span>
+                          <strong className="text-xs font-black">{s.student_participants || 0} Siswa</strong>
+                        </div>
+                        <div className="p-1.5 bg-amber-50 text-amber-800 rounded-lg font-semibold">
+                          <span>Guru: </span>
+                          <strong className="text-xs font-black">{s.teacher_participants || 0} Guru</strong>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -908,57 +1111,65 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {trainings.map((t: any) => (
-                  <div key={t.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-2 text-xs">
-                    <div className="flex items-center justify-between font-bold text-slate-900">
-                      <span className="text-sm">{t.venue}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100">{t.status}</span>
-                        {perms.canEditTrainings && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setEditingTraining(t);
-                                setTrainingForm({
-                                  venue: t.venue,
-                                  location: t.location || t.venue,
-                                  start_date: t.start_date,
-                                  end_date: t.end_date,
-                                  pic: t.pic || '',
-                                  target_teachers: t.target_teachers || 30,
-                                  target_students: t.target_students || 90,
-                                  status: t.status,
-                                  notes: t.notes || '',
-                                });
-                              }}
-                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
-                              title="Edit Kegiatan"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTraining(t)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                              title="Hapus Kegiatan"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
+              {trainings.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
+                  <CalendarDays className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700 text-sm">Belum ada kegiatan pelatihan</p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">Agenda kegiatan pelatihan di wilayah ini belum ditambahkan.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {trainings.map((t: any) => (
+                    <div key={t.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-2 text-xs">
+                      <div className="flex items-center justify-between font-bold text-slate-900">
+                        <span className="text-sm">{t.venue}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100">{t.status}</span>
+                          {perms.canEditTrainings && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingTraining(t);
+                                  setTrainingForm({
+                                    venue: t.venue,
+                                    location: t.location || t.venue,
+                                    start_date: t.start_date,
+                                    end_date: t.end_date,
+                                    pic: t.pic || '',
+                                    target_teachers: t.target_teachers || 30,
+                                    target_students: t.target_students || 90,
+                                    status: t.status,
+                                    notes: t.notes || '',
+                                  });
+                                }}
+                                className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+                                title="Edit Kegiatan"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTraining(t)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                title="Hapus Kegiatan"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-slate-600">Distrik: <strong>{t.district_name}</strong> • PIC: <strong>{t.pic}</strong></div>
+                      <div className="text-slate-600">Jadwal: {formatDateIndo(t.start_date)} - {formatDateIndo(t.end_date)}</div>
+                      <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+                        <span className="text-emerald-700 font-bold">{formatRupiah(t.total_realization || 0)}</span>
+                        <Link href={`/kegiatan/${t.id}`} className="text-emerald-700 font-bold hover:underline">
+                          Buka Workspace →
+                        </Link>
                       </div>
                     </div>
-                    <div className="text-slate-600">Distrik: <strong>{t.district_name}</strong> • PIC: <strong>{t.pic}</strong></div>
-                    <div className="text-slate-600">Jadwal: {formatDateIndo(t.start_date)} - {formatDateIndo(t.end_date)}</div>
-                    <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
-                      <span className="text-emerald-700 font-bold">{formatRupiah(t.total_realization || 0)}</span>
-                      <Link href={`/kegiatan/${t.id}`} className="text-emerald-700 font-bold hover:underline">
-                        Buka Workspace →
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

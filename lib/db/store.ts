@@ -1,5 +1,5 @@
-// Papua Barat Monitoring System - In-Memory Universal Data Store
-// Zero external native C++ dependencies, 100% compatible with Vercel Serverless, Node 18, 20, 22, 24
+import fs from 'node:fs';
+import path from 'node:path';
 
 import {
   UserProfile,
@@ -44,47 +44,42 @@ function getInitialState(): DataStoreState {
   const profiles: UserProfile[] = [
     {
       id: 'usr-admin-01',
-      full_name: 'Dr. Yan Pieterson, S.Kom., M.T.',
-      email: 'admin@papuabarat.go.id',
+      full_name: 'Melisa',
+      email: 'melisa@papuabarat.go.id',
+      username: 'melisa',
+      password: 'admin123',
       role: 'super_admin',
       avatar_url: '/assets/avatars/admin.png',
       is_active: true,
-      last_login: '2026-08-27T08:30:00+09:00',
+      last_login: '2026-08-28T08:30:00+09:00',
       created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-08-27T08:30:00Z',
+      updated_at: '2026-08-28T08:30:00Z',
     },
     {
       id: 'usr-finance-01',
-      full_name: 'Maria Magdalena Mandacan, S.E., Ak.',
-      email: 'keuangan@papuabarat.go.id',
+      full_name: 'Rechi Muhammad',
+      email: 'rechi@papuabarat.go.id',
+      username: 'rechi',
+      password: 'finance123',
       role: 'finance',
       avatar_url: '/assets/avatars/finance.png',
       is_active: true,
-      last_login: '2026-08-27T09:15:00+09:00',
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-08-27T09:15:00Z',
-    },
-    {
-      id: 'usr-pimpinan-01',
-      full_name: 'Ir. Dominggus Mandacan, M.Si.',
-      email: 'pimpinan@papuabarat.go.id',
-      role: 'pimpinan',
-      avatar_url: '/assets/avatars/pimpinan.png',
-      is_active: true,
-      last_login: '2026-08-26T16:45:00+09:00',
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-08-26T16:45:00Z',
+      last_login: '2026-08-28T09:15:00+09:00',
+      created_at: '2026-01-05T00:00:00Z',
+      updated_at: '2026-08-28T09:15:00Z',
     },
     {
       id: 'usr-viewer-01',
-      full_name: 'Barnabas Dowansiba, S.Pd., M.Pd. (Kadisdik Prov)',
-      email: 'kadisdik@papuabarat.go.id',
+      full_name: 'Viewer',
+      email: 'viewer@papuabarat.go.id',
+      username: 'viewer',
+      password: 'viewer123',
       role: 'viewer',
-      avatar_url: '/assets/avatars/kadisdik.png',
+      avatar_url: '/assets/avatars/viewer.png',
       is_active: true,
-      last_login: '2026-08-27T07:20:00+09:00',
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-08-27T07:20:00Z',
+      last_login: '2026-08-28T07:20:00+09:00',
+      created_at: '2026-01-10T00:00:00Z',
+      updated_at: '2026-08-28T07:20:00Z',
     },
   ];
 
@@ -773,10 +768,65 @@ function getInitialState(): DataStoreState {
   };
 }
 
+function getStorageFilePath(): string {
+  if (process.env.VERCEL) {
+    return path.join('/tmp', 'papua_store.json');
+  }
+  return path.join(process.cwd(), 'data', 'papua_store.json');
+}
+
+function loadInitialStore(): DataStoreState {
+  const filePath = getStorageFilePath();
+  try {
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (parsed && Array.isArray(parsed.districts) && Array.isArray(parsed.schools)) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read persistent store from disk, falling back to initial state:', err);
+  }
+
+  const initial = getInitialState();
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not write initial store to disk:', err);
+  }
+  return initial;
+}
+
 // Global persistent instance for serverless lifecycle
 const globalData = globalThis as unknown as { __papuaBaratDataStore?: DataStoreState };
 if (!globalData.__papuaBaratDataStore) {
-  globalData.__papuaBaratDataStore = getInitialState();
+  globalData.__papuaBaratDataStore = loadInitialStore();
 }
 
 export const store = globalData.__papuaBaratDataStore;
+
+export function persistStore(): void {
+  try {
+    const filePath = getStorageFilePath();
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(filePath, JSON.stringify(store, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write store to disk:', err);
+  }
+}
+
+export function resetStoreToDefault(): DataStoreState {
+  const fresh = getInitialState();
+  Object.keys(store).forEach(k => delete (store as any)[k]);
+  Object.assign(store, fresh);
+  persistStore();
+  return store;
+}

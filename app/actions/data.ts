@@ -234,3 +234,13 @@ export async function actionUpdateBudget(id: string, data: any) {
 export async function actionUpdateRealization(id: string, data: any) {
   return queries.updateRealization(id, data);
 }
+
+export async function actionSyncRegencyData(regencyId: string, data: any) {
+  return queries.syncRegencyData(regencyId, data);
+}
+
+export async function actionResetToDefault() {
+  const { resetStoreToDefault } = await import('@/lib/db/store');
+  resetStoreToDefault();
+  return { success: true };
+}

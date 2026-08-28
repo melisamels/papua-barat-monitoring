@@ -2,7 +2,7 @@
 // Program Pandai Berhitung dengan Metode GASING
 // 100% Serverless & Vercel Compatible, Zero C++ Native Dependency
 
-import { store } from './store';
+import { store, persistStore, resetStoreToDefault } from './store';
 import {
   Regency,
   District,
@@ -262,6 +262,7 @@ export function createDistrict(data: {
   };
 
   store.districts.push(newDistrict);
+  persistStore();
   logAudit('Create', 'Distrik', id, 'Admin', 'usr-admin-01', undefined, `Tambah distrik baru: ${data.name} (${reg?.name})`);
   return toPlain(newDistrict);
 }
@@ -270,6 +271,7 @@ export function updateDistrict(id: string, data: Partial<District>): District {
   const dist = store.districts.find(d => d.id === id);
   if (!dist) throw new Error('Distrik tidak ditemukan');
   Object.assign(dist, data);
+  persistStore();
   logAudit('Update', 'Distrik', id, 'Admin', 'usr-admin-01', undefined, `Update distrik ${dist.name}`);
   return toPlain(dist);
 }
@@ -277,8 +279,18 @@ export function updateDistrict(id: string, data: Partial<District>): District {
 export function deleteDistrict(id: string) {
   const dist = store.districts.find(d => d.id === id);
   const name = dist?.name || id;
+  const schoolIds = new Set(store.schools.filter(s => s.district_id === id).map(s => s.id));
+  const trainingIds = new Set(store.trainings.filter(t => t.district_id === id).map(t => t.id));
+
   store.districts = store.districts.filter(d => d.id !== id);
-  logAudit('Delete', 'Distrik', id, 'Admin', 'usr-admin-01', undefined, `Hapus distrik ${name}`);
+  store.schools = store.schools.filter(s => s.district_id !== id);
+  store.trainings = store.trainings.filter(t => t.district_id !== id);
+  store.participants = store.participants.filter(p => !schoolIds.has(p.school_id) && !trainingIds.has(p.training_id));
+  store.budgets = store.budgets.filter(b => !trainingIds.has(b.training_id));
+  store.realizations = store.realizations.filter(r => !trainingIds.has(r.training_id));
+
+  persistStore();
+  logAudit('Delete', 'Distrik', id, 'Admin', 'usr-admin-01', undefined, `Hapus distrik ${name} beserta seluruh sekolah & kegiatan`);
 }
 
 // CREATE SCHOOL (#12)
@@ -313,6 +325,7 @@ export function createSchool(data: {
   };
 
   store.schools.push(newSchool);
+  persistStore();
   logAudit('Create', 'Sekolah', id, 'Admin', 'usr-admin-01', undefined, `Tambah sekolah baru: ${data.name} di ${dist?.name}`);
   return toPlain(newSchool);
 }
@@ -321,6 +334,7 @@ export function updateSchool(id: string, data: Partial<School>): School {
   const sch = store.schools.find(s => s.id === id);
   if (!sch) throw new Error('Sekolah tidak ditemukan');
   Object.assign(sch, data);
+  persistStore();
   logAudit('Update', 'Sekolah', id, 'Admin', 'usr-admin-01', undefined, `Update sekolah ${sch.name}`);
   return toPlain(sch);
 }
@@ -329,6 +343,8 @@ export function deleteSchool(id: string) {
   const sch = store.schools.find(s => s.id === id);
   const name = sch?.name || id;
   store.schools = store.schools.filter(s => s.id !== id);
+  store.participants = store.participants.filter(p => p.school_id !== id);
+  persistStore();
   logAudit('Delete', 'Sekolah', id, 'Admin', 'usr-admin-01', undefined, `Hapus sekolah ${name}`);
 }
 
@@ -847,6 +863,7 @@ export function createParticipant(data: {
     training.actual_students = students;
   }
 
+  persistStore();
   logAudit('Create', 'Peserta', id, 'Admin', 'usr-admin-01', undefined, `Tambah peserta ${data.participant_type}: ${data.full_name}`);
   return id;
 }
@@ -893,6 +910,7 @@ export function batchCreateParticipants(
     }
   });
 
+  persistStore();
   logAudit('Create', 'Peserta', 'batch', 'Admin', 'usr-admin-01', undefined, `Batch import ${count} peserta`);
   return count;
 }
@@ -910,6 +928,7 @@ export function updateParticipant(id: string, data: Partial<Participant>): Parti
     }
   }
 
+  persistStore();
   logAudit('Update', 'Peserta', id, 'Admin', 'usr-admin-01', undefined, `Update peserta ${p.full_name}`);
   return toPlain(p);
 }
@@ -928,6 +947,7 @@ export function deleteParticipant(id: string) {
     }
   }
 
+  persistStore();
   logAudit('Delete', 'Peserta', id, 'Admin', 'usr-admin-01', undefined, `Hapus peserta ${name}`);
 }
 
@@ -995,6 +1015,7 @@ export function createTraining(data: {
     });
   });
 
+  persistStore();
   logAudit('Create', 'Kegiatan', id, 'Admin', 'usr-admin-01', undefined, `Buat kegiatan baru ${id} di ${data.location}`);
   return id;
 }
@@ -1006,6 +1027,7 @@ export function updateTraining(id: string, data: Partial<Training>) {
   const oldStatus = training.status;
   Object.assign(training, data, { updated_at: new Date().toISOString() });
 
+  persistStore();
   if (data.status && data.status !== oldStatus) {
     logAudit('Update', 'Kegiatan', id, 'Admin', 'usr-admin-01', oldStatus, `Status diubah: ${oldStatus} -> ${data.status}`);
   }
@@ -1021,6 +1043,7 @@ export function deleteTraining(id: string) {
   store.participants = store.participants.filter(p => p.training_id !== id);
   store.notifications = store.notifications.filter(n => n.training_id !== id);
 
+  persistStore();
   logAudit('Delete', 'Kegiatan', id, 'Admin', 'usr-admin-01', undefined, `Hapus kegiatan ${id}`);
 }
 
@@ -1054,6 +1077,7 @@ export function createBudget(data: {
     created_at: new Date().toISOString(),
   });
 
+  persistStore();
   logAudit('Create', 'RAB', id, 'Finance Admin', 'usr-finance-01', undefined, `Tambah item RAB ${data.description} Rp ${total.toLocaleString('id-ID')}`);
   return id;
 }
@@ -1069,12 +1093,14 @@ export function updateBudget(id: string, data: Partial<Budget>): Budget {
   if (data.volume !== undefined || data.unit_price !== undefined) {
     b.total = (b.volume || 1) * (b.unit_price || 0);
   }
+  persistStore();
   logAudit('Update', 'RAB', id, 'Finance Admin', 'usr-finance-01', undefined, `Update RAB ${b.description}`);
   return toPlain(b);
 }
 
 export function deleteBudget(id: string) {
   store.budgets = store.budgets.filter(b => b.id !== id);
+  persistStore();
   logAudit('Delete', 'RAB', id, 'Finance Admin', 'usr-finance-01', undefined, `Hapus item RAB ${id}`);
 }
 
@@ -1116,6 +1142,7 @@ export function createRealization(data: {
     created_at: new Date().toISOString(),
   });
 
+  persistStore();
   logAudit('Create', 'Realisasi', id, 'Finance Admin', 'usr-finance-01', undefined, `Input realisasi ${data.description} Rp ${total.toLocaleString('id-ID')}`);
   return id;
 }
@@ -1131,12 +1158,14 @@ export function updateRealization(id: string, data: Partial<Realization>): Reali
   if (data.volume !== undefined || data.unit_price !== undefined) {
     r.total = (r.volume || 1) * (r.unit_price || 0);
   }
+  persistStore();
   logAudit('Update', 'Realisasi', id, 'Finance Admin', 'usr-finance-01', undefined, `Update realisasi ${r.description}`);
   return toPlain(r);
 }
 
 export function deleteRealization(id: string) {
   store.realizations = store.realizations.filter(r => r.id !== id);
+  persistStore();
   logAudit('Delete', 'Realisasi', id, 'Finance Admin', 'usr-finance-01', undefined, `Hapus realisasi ${id}`);
 }
 
@@ -1146,7 +1175,73 @@ export function toggleLpjChecklist(id: string, is_complete: boolean) {
   if (item) {
     item.is_complete = is_complete;
     item.updated_at = new Date().toISOString();
+    persistStore();
   }
+}
+
+// FULL REGENCY SYNC
+export function syncRegencyData(regencyId: string, data: {
+  districts?: District[];
+  schools?: School[];
+  trainings?: Training[];
+  participants?: Participant[];
+  budgets?: Budget[];
+  realizations?: Realization[];
+}) {
+  const reg = store.regencies.find(r => r.id === regencyId);
+  const regName = reg?.name || '';
+
+  // Find all current school & training IDs for this regency
+  const existingSchoolIds = new Set(
+    store.schools.filter(s => s.regency_id === regencyId).map(s => s.id)
+  );
+  const existingTrainingIds = new Set(
+    store.trainings.filter(t => t.regency_id === regencyId).map(t => t.id)
+  );
+
+  if (data.districts !== undefined) {
+    store.districts = [
+      ...store.districts.filter(d => d.regency_id !== regencyId),
+      ...data.districts,
+    ];
+  }
+  if (data.schools !== undefined) {
+    store.schools = [
+      ...store.schools.filter(s => s.regency_id !== regencyId),
+      ...data.schools,
+    ];
+  }
+  if (data.trainings !== undefined) {
+    store.trainings = [
+      ...store.trainings.filter(t => t.regency_id !== regencyId),
+      ...data.trainings,
+    ];
+  }
+  if (data.participants !== undefined) {
+    store.participants = [
+      ...store.participants.filter(p =>
+        !existingTrainingIds.has(p.training_id) &&
+        !existingSchoolIds.has(p.school_id) &&
+        p.regency_name !== regName
+      ),
+      ...data.participants,
+    ];
+  }
+  if (data.budgets !== undefined) {
+    store.budgets = [
+      ...store.budgets.filter(b => !existingTrainingIds.has(b.training_id)),
+      ...data.budgets,
+    ];
+  }
+  if (data.realizations !== undefined) {
+    store.realizations = [
+      ...store.realizations.filter(r => !existingTrainingIds.has(r.training_id)),
+      ...data.realizations,
+    ];
+  }
+
+  persistStore();
+  return { success: true };
 }
 
 // DOCUMENTATION & OFFICIAL DOCUMENTS (#30, #31, #32)

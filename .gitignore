@@ -32,6 +32,7 @@ yarn-error.log*
 # SQLite temporary files
 *.db-shm
 *.db-wal
+data/*.json
 
 # TypeScript
 *.tsbuildinfo

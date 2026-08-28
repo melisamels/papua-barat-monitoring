@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useApp } from '@/components/providers/AppProvider';
@@ -29,6 +29,46 @@ export default function KabupatenClient({ initialRegencies }: KabupatenClientPro
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [regencies, setRegencies] = useState(initialRegencies);
+
+  // Sync counts if client has custom regency data in localStorage
+  useEffect(() => {
+    try {
+      setRegencies(prev => prev.map(r => {
+        const saved = localStorage.getItem(`papua_regency_custom_v1_${r.id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.is_customized) {
+            const districtList = Array.isArray(parsed.districts) ? parsed.districts : [];
+            const schoolList = Array.isArray(parsed.schools) ? parsed.schools : [];
+            const trainingList = Array.isArray(parsed.trainings) ? parsed.trainings : [];
+            const participantList = Array.isArray(parsed.participants) ? parsed.participants : [];
+            const realizationList = Array.isArray(parsed.realizations) ? parsed.realizations : [];
+
+            const totalRealization = realizationList.reduce((acc: number, item: any) => acc + (item.total || 0), 0);
+            const actualTeachers = participantList.filter((p: any) => p.participant_type === 'guru').length;
+            const actualStudents = participantList.filter((p: any) => p.participant_type === 'siswa').length;
+            const targetTeachers = districtList.reduce((acc: number, d: any) => acc + (Number(d.target_teachers) || 0), 0);
+            const targetStudents = districtList.reduce((acc: number, d: any) => acc + (Number(d.target_students) || 0), 0);
+
+            return {
+              ...r,
+              district_count: districtList.length,
+              school_count: schoolList.length,
+              training_count: trainingList.length,
+              actual_teachers: actualTeachers,
+              actual_students: actualStudents,
+              target_teachers: targetTeachers,
+              target_students: targetStudents,
+              total_realization: totalRealization,
+            };
+          }
+        }
+        return r;
+      }));
+    } catch (e) {
+      console.warn('Error reading regency overrides:', e);
+    }
+  }, []);
 
   // Modal states
   const [showAddDistrictModal, setShowAddDistrictModal] = useState(false);
