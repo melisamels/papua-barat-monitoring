@@ -29,7 +29,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('papua_active_user');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        try {
+          const parsed = JSON.parse(saved);
+          const found = DEMO_USERS.find(u => u.id === parsed.id || u.role === parsed.role);
+          if (found) {
+            return { ...found, full_name: parsed.full_name || found.full_name };
+          }
+        } catch {}
       }
     }
     return DEMO_USERS[0];

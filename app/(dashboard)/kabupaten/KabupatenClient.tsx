@@ -141,22 +141,24 @@ export default function KabupatenClient({ initialRegencies }: KabupatenClientPro
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAddDistrictModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Distrik</span>
-          </button>
-          <button
-            onClick={() => setShowAddSchoolModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Sekolah</span>
-          </button>
-        </div>
+        {perms.canEditMasterData && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddDistrictModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tambah Distrik</span>
+            </button>
+            <button
+              onClick={() => setShowAddSchoolModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tambah Sekolah</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">

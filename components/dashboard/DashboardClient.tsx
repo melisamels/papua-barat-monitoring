@@ -142,13 +142,15 @@ export default function DashboardClient({
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                   Selamat Datang, <span className="text-emerald-800 underline decoration-emerald-400 decoration-wavy underline-offset-4">{currentUser.full_name}</span>
                 </h1>
-                <button
-                  onClick={() => setIsEditingName(true)}
-                  className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
-                  title="Klik untuk mengubah nama Anda"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
+                {currentUser.role !== 'viewer' && (
+                  <button
+                    onClick={() => setIsEditingName(true)}
+                    className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                    title="Klik untuk mengubah nama Anda"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             )}
           </div>

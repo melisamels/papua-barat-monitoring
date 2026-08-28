@@ -7,6 +7,8 @@ export interface UserProfile {
   id: string;
   full_name: string;
   email: string;
+  username?: string;
+  password?: string;
   role: UserRole;
   avatar_url?: string;
   is_active: boolean;

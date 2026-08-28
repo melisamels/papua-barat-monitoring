@@ -6,47 +6,42 @@ import { UserProfile, UserRole } from '@/lib/types';
 export const DEMO_USERS: UserProfile[] = [
   {
     id: 'usr-admin-01',
-    full_name: 'Dr. Yan Pieterson, S.Kom., M.T.',
-    email: 'admin@papuabarat.go.id',
+    full_name: 'Melisa',
+    email: 'melisa@papuabarat.go.id',
+    username: 'melisa',
+    password: 'admin123',
     role: 'super_admin',
     avatar_url: '/assets/avatars/admin.png',
     is_active: true,
-    last_login: '2026-08-27T08:30:00+09:00',
+    last_login: '2026-08-28T08:30:00+09:00',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-08-27T08:30:00Z',
+    updated_at: '2026-08-28T08:30:00Z',
   },
   {
     id: 'usr-finance-01',
-    full_name: 'Maria Magdalena Mandacan, S.E., Ak.',
-    email: 'keuangan@papuabarat.go.id',
+    full_name: 'Rechi Muhammad',
+    email: 'rechi@papuabarat.go.id',
+    username: 'rechi',
+    password: 'finance123',
     role: 'finance',
     avatar_url: '/assets/avatars/finance.png',
     is_active: true,
-    last_login: '2026-08-27T09:15:00+09:00',
+    last_login: '2026-08-28T09:15:00+09:00',
     created_at: '2026-01-05T00:00:00Z',
-    updated_at: '2026-08-27T09:15:00Z',
-  },
-  {
-    id: 'usr-pimpinan-01',
-    full_name: 'Ir. Dominggus Mandacan, M.Si.',
-    email: 'pimpinan@papuabarat.go.id',
-    role: 'pimpinan',
-    avatar_url: '/assets/avatars/pimpinan.png',
-    is_active: true,
-    last_login: '2026-08-26T16:45:00+09:00',
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-08-26T16:45:00Z',
+    updated_at: '2026-08-28T09:15:00Z',
   },
   {
     id: 'usr-viewer-01',
-    full_name: 'Barnabas Dowansiba, S.Pd., M.Pd. (Kadisdik Prov)',
-    email: 'kadisdik@papuabarat.go.id',
+    full_name: 'Viewer',
+    email: 'viewer@papuabarat.go.id',
+    username: 'viewer',
+    password: 'viewer123',
     role: 'viewer',
-    avatar_url: '/assets/avatars/kadisdik.png',
+    avatar_url: '/assets/avatars/viewer.png',
     is_active: true,
-    last_login: '2026-08-27T07:20:00+09:00',
+    last_login: '2026-08-28T07:20:00+09:00',
     created_at: '2026-01-10T00:00:00Z',
-    updated_at: '2026-08-27T07:20:00Z',
+    updated_at: '2026-08-28T07:20:00Z',
   },
 ];
 
@@ -160,7 +155,7 @@ export function getRoleNameIndo(role: UserRole): string {
     case 'pimpinan':
       return 'Pimpinan';
     case 'viewer':
-      return 'Viewer (Kadisdik Prov)';
+      return 'Viewer (Pemantau)';
     default:
       return role;
   }

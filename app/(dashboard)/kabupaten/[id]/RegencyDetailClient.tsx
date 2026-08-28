@@ -589,26 +589,30 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            onClick={() => {
-              setDistrictForm({ name: '', code: '', coordinator: '', target_teachers: 30, target_students: 90, status: 'Planning', notes: '' });
-              setShowAddDistrictModal(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Distrik</span>
-          </button>
-          <button
-            onClick={() => {
-              setSchoolForm({ district_id: districts[0]?.id || '', name: '', school_level: 'SD', principal: '', address: '', teacher_participants: 15, student_participants: 45, notes: '' });
-              setShowAddSchoolModal(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Sekolah</span>
-          </button>
+          {perms.canEditMasterData && (
+            <>
+              <button
+                onClick={() => {
+                  setDistrictForm({ name: '', code: '', coordinator: '', target_teachers: 30, target_students: 90, status: 'Planning', notes: '' });
+                  setShowAddDistrictModal(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Distrik</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSchoolForm({ district_id: districts[0]?.id || '', name: '', school_level: 'SD', principal: '', address: '', teacher_participants: 15, student_participants: 45, notes: '' });
+                  setShowAddSchoolModal(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Sekolah</span>
+              </button>
+            </>
+          )}
           <Link
             href={`/laporan/cetak?kabupaten=${regency.id}`}
             target="_blank"
@@ -737,16 +741,18 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                   </h4>
                   <p className="text-xs text-slate-500">Edit, kelola status, dan hapus master data distrik</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setDistrictForm({ name: '', code: '', coordinator: '', target_teachers: 30, target_students: 90, status: 'Planning', notes: '' });
-                    setShowAddDistrictModal(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Distrik</span>
-                </button>
+                {perms.canEditMasterData && (
+                  <button
+                    onClick={() => {
+                      setDistrictForm({ name: '', code: '', coordinator: '', target_teachers: 30, target_students: 90, status: 'Planning', notes: '' });
+                      setShowAddDistrictModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Distrik</span>
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -756,31 +762,35 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                       <span className="text-sm">Distrik {d.name}</span>
                       <div className="flex items-center gap-1">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">Kode: {d.code}</span>
-                        <button
-                          onClick={() => {
-                            setEditingDistrict(d);
-                            setDistrictForm({
-                              name: d.name,
-                              code: d.code,
-                              coordinator: d.coordinator,
-                              target_teachers: d.target_teachers || 30,
-                              target_students: d.target_students || 90,
-                              status: d.status,
-                              notes: d.notes || '',
-                            });
-                          }}
-                          className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
-                          title="Edit Distrik"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDistrict(d)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                          title="Hapus Distrik"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {perms.canEditMasterData && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingDistrict(d);
+                                setDistrictForm({
+                                  name: d.name,
+                                  code: d.code,
+                                  coordinator: d.coordinator,
+                                  target_teachers: d.target_teachers || 30,
+                                  target_students: d.target_students || 90,
+                                  status: d.status,
+                                  notes: d.notes || '',
+                                });
+                              }}
+                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+                              title="Edit Distrik"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDistrict(d)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                              title="Hapus Distrik"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="text-slate-600">Koordinator: <strong className="text-slate-800">{d.coordinator}</strong></div>
@@ -804,16 +814,18 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                   </h4>
                   <p className="text-xs text-slate-500">Edit data sekolah, jenjang, kepala sekolah, dan jumlah siswa</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setSchoolForm({ district_id: districts[0]?.id || '', name: '', school_level: 'SD', principal: '', address: '', teacher_participants: 15, student_participants: 45, notes: '' });
-                    setShowAddSchoolModal(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Sekolah</span>
-                </button>
+                {perms.canEditMasterData && (
+                  <button
+                    onClick={() => {
+                      setSchoolForm({ district_id: districts[0]?.id || '', name: '', school_level: 'SD', principal: '', address: '', teacher_participants: 15, student_participants: 45, notes: '' });
+                      setShowAddSchoolModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Sekolah</span>
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -823,32 +835,36 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                       <span className="text-sm">{s.name}</span>
                       <div className="flex items-center gap-1">
                         <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 text-[10px] font-bold border border-blue-100">{s.school_level}</span>
-                        <button
-                          onClick={() => {
-                            setEditingSchool(s);
-                            setSchoolForm({
-                              district_id: s.district_id,
-                              name: s.name,
-                              school_level: s.school_level,
-                              principal: s.principal || '',
-                              address: s.address || '',
-                              teacher_participants: s.teacher_participants || 15,
-                              student_participants: s.student_participants || 45,
-                              notes: s.notes || '',
-                            });
-                          }}
-                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-                          title="Edit Sekolah"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSchool(s)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                          title="Hapus Sekolah"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {perms.canEditMasterData && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingSchool(s);
+                                setSchoolForm({
+                                  district_id: s.district_id,
+                                  name: s.name,
+                                  school_level: s.school_level,
+                                  principal: s.principal || '',
+                                  address: s.address || '',
+                                  teacher_participants: s.teacher_participants || 15,
+                                  student_participants: s.student_participants || 45,
+                                  notes: s.notes || '',
+                                });
+                              }}
+                              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              title="Edit Sekolah"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSchool(s)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                              title="Hapus Sekolah"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="text-slate-600">Distrik: <strong className="text-slate-800">{s.district_name || '-'}</strong></div>
@@ -881,13 +897,15 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                   </h4>
                   <p className="text-xs text-slate-500">Edit jadwal, lokasi pelatihan, atau hapus kegiatan</p>
                 </div>
-                <Link
-                  href="/kegiatan/baru"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Kegiatan Baru</span>
-                </Link>
+                {perms.canEditTrainings && (
+                  <Link
+                    href="/kegiatan/baru"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Kegiatan Baru</span>
+                  </Link>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -897,33 +915,37 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                       <span className="text-sm">{t.venue}</span>
                       <div className="flex items-center gap-1">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100">{t.status}</span>
-                        <button
-                          onClick={() => {
-                            setEditingTraining(t);
-                            setTrainingForm({
-                              venue: t.venue,
-                              location: t.location || t.venue,
-                              start_date: t.start_date,
-                              end_date: t.end_date,
-                              pic: t.pic || '',
-                              target_teachers: t.target_teachers || 30,
-                              target_students: t.target_students || 90,
-                              status: t.status,
-                              notes: t.notes || '',
-                            });
-                          }}
-                          className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
-                          title="Edit Kegiatan"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTraining(t)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                          title="Hapus Kegiatan"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {perms.canEditTrainings && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingTraining(t);
+                                setTrainingForm({
+                                  venue: t.venue,
+                                  location: t.location || t.venue,
+                                  start_date: t.start_date,
+                                  end_date: t.end_date,
+                                  pic: t.pic || '',
+                                  target_teachers: t.target_teachers || 30,
+                                  target_students: t.target_students || 90,
+                                  status: t.status,
+                                  notes: t.notes || '',
+                                });
+                              }}
+                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+                              title="Edit Kegiatan"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTraining(t)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                              title="Hapus Kegiatan"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="text-slate-600">Distrik: <strong>{t.district_name}</strong> • PIC: <strong>{t.pic}</strong></div>
@@ -950,25 +972,27 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                   </h4>
                   <p className="text-xs text-slate-500">Kelola, edit profil guru/siswa, dan hapus peserta pelatihan</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setParticipantForm({
-                      training_id: trainings[0]?.id || '',
-                      school_id: schools[0]?.id || '',
-                      participant_type: 'guru',
-                      full_name: '',
-                      gender: 'L',
-                      class_name: '',
-                      attendance_status: 'Hadir',
-                      notes: '',
-                    });
-                    setShowAddParticipantModal(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Peserta</span>
-                </button>
+                {perms.canEditParticipants && (
+                  <button
+                    onClick={() => {
+                      setParticipantForm({
+                        training_id: trainings[0]?.id || '',
+                        school_id: schools[0]?.id || '',
+                        participant_type: 'guru',
+                        full_name: '',
+                        gender: 'L',
+                        class_name: '',
+                        attendance_status: 'Hadir',
+                        notes: '',
+                      });
+                      setShowAddParticipantModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Peserta</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs">
@@ -1007,7 +1031,7 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                         <th className="p-3">Gender</th>
                         <th className="p-3">Asal Sekolah</th>
                         <th className="p-3">Status</th>
-                        <th className="p-3 text-right">Aksi</th>
+                        {perms.canEditParticipants && <th className="p-3 text-right">Aksi</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1026,34 +1050,36 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                               {p.attendance_status || 'Hadir'}
                             </span>
                           </td>
-                          <td className="p-3 text-right space-x-1">
-                            <button
-                              onClick={() => {
-                                setEditingParticipant(p);
-                                setParticipantForm({
-                                  training_id: p.training_id,
-                                  school_id: p.school_id,
-                                  participant_type: p.participant_type,
-                                  full_name: p.full_name,
-                                  gender: p.gender,
-                                  class_name: p.class_name || '',
-                                  attendance_status: (p.attendance_status as any) || 'Hadir',
-                                  notes: p.notes || '',
-                                });
-                              }}
-                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded inline-block"
-                              title="Edit Peserta"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteParticipant(p)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded inline-block"
-                              title="Hapus Peserta"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
+                          {perms.canEditParticipants && (
+                            <td className="p-3 text-right space-x-1">
+                              <button
+                                onClick={() => {
+                                  setEditingParticipant(p);
+                                  setParticipantForm({
+                                    training_id: p.training_id,
+                                    school_id: p.school_id,
+                                    participant_type: p.participant_type,
+                                    full_name: p.full_name,
+                                    gender: p.gender,
+                                    class_name: p.class_name || '',
+                                    attendance_status: (p.attendance_status as any) || 'Hadir',
+                                    notes: p.notes || '',
+                                  });
+                                }}
+                                className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded inline-block"
+                                title="Edit Peserta"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteParticipant(p)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded inline-block"
+                                title="Hapus Peserta"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -1073,24 +1099,26 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                   </h4>
                   <p className="text-xs text-slate-500">Total RAB: <strong className="text-emerald-700">{formatRupiah(currentTotalRab)}</strong></p>
                 </div>
-                <button
-                  onClick={() => {
-                    setBudgetForm({
-                      training_id: trainings[0]?.id || '',
-                      category_id: budgetCategories[0]?.id || 'cat-1',
-                      description: '',
-                      volume: 1,
-                      unit: 'Paket',
-                      unit_price: 1000000,
-                      notes: '',
-                    });
-                    setShowAddBudgetModal(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Item RAB</span>
-                </button>
+                {perms.canEditBudget && (
+                  <button
+                    onClick={() => {
+                      setBudgetForm({
+                        training_id: trainings[0]?.id || '',
+                        category_id: budgetCategories[0]?.id || 'cat-1',
+                        description: '',
+                        volume: 1,
+                        unit: 'Paket',
+                        unit_price: 1000000,
+                        notes: '',
+                      });
+                      setShowAddBudgetModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Item RAB</span>
+                  </button>
+                )}
               </div>
 
               {budgets.length === 0 ? (
@@ -1107,7 +1135,7 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                         <th className="p-3">Volume</th>
                         <th className="p-3">Harga Satuan</th>
                         <th className="p-3">Total Biaya</th>
-                        <th className="p-3 text-right">Aksi</th>
+                        {perms.canEditBudget && <th className="p-3 text-right">Aksi</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1118,33 +1146,35 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                           <td className="p-3">{b.volume} {b.unit}</td>
                           <td className="p-3">{formatRupiah(b.unit_price)}</td>
                           <td className="p-3 font-bold text-emerald-800">{formatRupiah(b.total)}</td>
-                          <td className="p-3 text-right space-x-1">
-                            <button
-                              onClick={() => {
-                                setEditingBudget(b);
-                                setBudgetForm({
-                                  training_id: b.training_id,
-                                  category_id: b.category_id,
-                                  description: b.description,
-                                  volume: b.volume,
-                                  unit: b.unit,
-                                  unit_price: b.unit_price,
-                                  notes: b.notes || '',
-                                });
-                              }}
-                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded inline-block"
-                              title="Edit RAB"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteBudget(b)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded inline-block"
-                              title="Hapus RAB"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
+                          {perms.canEditBudget && (
+                            <td className="p-3 text-right space-x-1">
+                              <button
+                                onClick={() => {
+                                  setEditingBudget(b);
+                                  setBudgetForm({
+                                    training_id: b.training_id,
+                                    category_id: b.category_id,
+                                    description: b.description,
+                                    volume: b.volume,
+                                    unit: b.unit,
+                                    unit_price: b.unit_price,
+                                    notes: b.notes || '',
+                                  });
+                                }}
+                                className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded inline-block"
+                                title="Edit RAB"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBudget(b)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded inline-block"
+                                title="Hapus RAB"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -1164,27 +1194,29 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                   </h4>
                   <p className="text-xs text-slate-500">Total Realisasi: <strong className="text-emerald-700">{formatRupiah(currentTotalRealization)}</strong></p>
                 </div>
-                <button
-                  onClick={() => {
-                    setRealizationForm({
-                      training_id: trainings[0]?.id || '',
-                      transaction_date: new Date().toISOString().split('T')[0],
-                      category_id: budgetCategories[0]?.id || 'cat-1',
-                      description: '',
-                      vendor: '',
-                      invoice_number: '',
-                      volume: 1,
-                      unit: 'Paket',
-                      unit_price: 1000000,
-                      notes: '',
-                    });
-                    setShowAddRealizationModal(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Catat Realisasi Baru</span>
-                </button>
+                {perms.canEditRealization && (
+                  <button
+                    onClick={() => {
+                      setRealizationForm({
+                        training_id: trainings[0]?.id || '',
+                        transaction_date: new Date().toISOString().split('T')[0],
+                        category_id: budgetCategories[0]?.id || 'cat-1',
+                        description: '',
+                        vendor: '',
+                        invoice_number: '',
+                        volume: 1,
+                        unit: 'Paket',
+                        unit_price: 1000000,
+                        notes: '',
+                      });
+                      setShowAddRealizationModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Catat Realisasi Baru</span>
+                  </button>
+                )}
               </div>
 
               {realizations.length === 0 ? (
@@ -1201,7 +1233,7 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                         <th className="p-3">No. Bukti / Kuitansi</th>
                         <th className="p-3">Volume</th>
                         <th className="p-3">Total Belanja</th>
-                        <th className="p-3 text-right">Aksi</th>
+                        {perms.canEditRealization && <th className="p-3 text-right">Aksi</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1215,36 +1247,38 @@ export default function RegencyDetailClient({ regency }: RegencyDetailClientProp
                           <td className="p-3 font-mono text-[11px] text-slate-600">{r.invoice_number}</td>
                           <td className="p-3">{r.volume} {r.unit}</td>
                           <td className="p-3 font-bold text-emerald-800">{formatRupiah(r.total)}</td>
-                          <td className="p-3 text-right space-x-1">
-                            <button
-                              onClick={() => {
-                                setEditingRealization(r);
-                                setRealizationForm({
-                                  training_id: r.training_id,
-                                  transaction_date: r.transaction_date,
-                                  category_id: r.category_id,
-                                  description: r.description,
-                                  vendor: r.vendor,
-                                  invoice_number: r.invoice_number || '',
-                                  volume: r.volume,
-                                  unit: r.unit,
-                                  unit_price: r.unit_price,
-                                  notes: r.notes || '',
-                                });
-                              }}
-                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded inline-block"
-                              title="Edit Realisasi"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteRealization(r)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded inline-block"
-                              title="Hapus Realisasi"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
+                          {perms.canEditRealization && (
+                            <td className="p-3 text-right space-x-1">
+                              <button
+                                onClick={() => {
+                                  setEditingRealization(r);
+                                  setRealizationForm({
+                                    training_id: r.training_id,
+                                    transaction_date: r.transaction_date,
+                                    category_id: r.category_id,
+                                    description: r.description,
+                                    vendor: r.vendor,
+                                    invoice_number: r.invoice_number || '',
+                                    volume: r.volume,
+                                    unit: r.unit,
+                                    unit_price: r.unit_price,
+                                    notes: r.notes || '',
+                                  });
+                                }}
+                                className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded inline-block"
+                                title="Edit Realisasi"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRealization(r)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded inline-block"
+                                title="Hapus Realisasi"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
