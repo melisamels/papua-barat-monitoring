@@ -53,6 +53,8 @@ export default function DashboardClient({
   const [summary, setSummary] = useState(initialSummary);
   const [regencies, setRegencies] = useState(initialRegencies);
   const [attendanceStats, setAttendanceStats] = useState(initialAttendance);
+  const [upcomingTrainings, setUpcomingTrainings] = useState(initialUpcoming);
+  const [attentionItems, setAttentionItems] = useState(initialAttention);
 
   // Edit User Name State (#1)
   const [isEditingName, setIsEditingName] = useState(false);
@@ -63,12 +65,249 @@ export default function DashboardClient({
     setNameInput(currentUser.full_name || '');
   }, [currentUser.full_name]);
 
-  // When globalFilter changes in header or filter bar, fetch updated data
+  // Synchronize dashboard states with any customized regency data in localStorage
+  const syncDashboardWithCustomData = React.useCallback((baseRegencies = initialRegencies, baseSummary = initialSummary, baseAttendance = initialAttendance) => {
+    try {
+      const regencyIds = ['reg-mkw', 'reg-mansel', 'reg-pegarfak', 'reg-bintuni', 'reg-wondama', 'reg-fakfak', 'reg-kaimana'];
+      const customDataMap: Record<string, any> = {};
+      let hasAnyCustom = false;
+
+      for (const id of regencyIds) {
+        const saved = typeof window !== 'undefined' ? localStorage.getItem(`papua_regency_custom_v1_${id}`) : null;
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.is_customized) {
+              customDataMap[id] = parsed;
+              hasAnyCustom = true;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      if (!hasAnyCustom) {
+        setRegencies(baseRegencies);
+        setSummary(baseSummary);
+        setAttendanceStats(baseAttendance);
+        setUpcomingTrainings(initialUpcoming);
+        setAttentionItems(initialAttention);
+        return;
+      }
+
+      // 1. Recalculate regencies
+      const updatedRegencies = baseRegencies.map((r: any) => {
+        const custom = customDataMap[r.id];
+        if (!custom) return r;
+
+        const districtList = Array.isArray(custom.districts) ? custom.districts : [];
+        const schoolList = Array.isArray(custom.schools) ? custom.schools : [];
+        const trainingList = Array.isArray(custom.trainings) ? custom.trainings : [];
+        const participantList = Array.isArray(custom.participants) ? custom.participants : [];
+        const budgetList = Array.isArray(custom.budgets) ? custom.budgets : [];
+        const realizationList = Array.isArray(custom.realizations) ? custom.realizations : [];
+
+        const totalRab = budgetList.reduce((acc: number, b: any) => acc + (Number(b.total) || 0), 0);
+        const totalRealization = realizationList.reduce((acc: number, item: any) => acc + (Number(item.total) || 0), 0);
+        const actualTeachers = participantList.filter((p: any) => p.participant_type === 'guru').length;
+        const actualStudents = participantList.filter((p: any) => p.participant_type === 'siswa').length;
+        const targetTeachers = districtList.reduce((acc: number, d: any) => acc + (Number(d.target_teachers) || 0), 0);
+        const targetStudents = districtList.reduce((acc: number, d: any) => acc + (Number(d.target_students) || 0), 0);
+
+        const completedCount = trainingList.filter((t: any) => t.status === 'Completed').length;
+        const ongoingCount = trainingList.filter((t: any) => t.status === 'Ongoing').length;
+        const readyCount = trainingList.filter((t: any) => t.status === 'Ready').length;
+
+        const progress = trainingList.length > 0 ? Math.round((completedCount / trainingList.length) * 100) : 0;
+        let status: any = 'Planning';
+        if (completedCount === trainingList.length && trainingList.length > 0) status = 'Completed';
+        else if (ongoingCount > 0) status = 'Ongoing';
+        else if (readyCount > 0) status = 'Ready';
+
+        return {
+          ...r,
+          district_count: districtList.length,
+          school_count: schoolList.length,
+          training_count: trainingList.length,
+          actual_teachers: actualTeachers,
+          actual_students: actualStudents,
+          target_teachers: targetTeachers,
+          target_students: targetStudents,
+          total_rab: totalRab,
+          total_realization: totalRealization,
+          status,
+          progress,
+        };
+      });
+
+      setRegencies(updatedRegencies);
+
+      // 2. Recalculate summary metrics
+      let totalDistricts = 0;
+      let totalSchools = 0;
+      let totalTrainings = 0;
+      let countPlanning = 0;
+      let countReady = 0;
+      let countOngoing = 0;
+      let countCompleted = 0;
+      let totalTargetTeachers = 0;
+      let totalActualTeachers = 0;
+      let totalTargetStudents = 0;
+      let totalActualStudents = 0;
+      let totalGlobalRab = 0;
+      let totalGlobalRealization = 0;
+
+      updatedRegencies.forEach((r: any) => {
+        totalDistricts += r.district_count;
+        totalSchools += r.school_count;
+        totalTrainings += r.training_count;
+        totalTargetTeachers += r.target_teachers;
+        totalActualTeachers += r.actual_teachers;
+        totalTargetStudents += r.target_students;
+        totalActualStudents += r.actual_students;
+        totalGlobalRab += r.total_rab;
+        totalGlobalRealization += r.total_realization;
+
+        const custom = customDataMap[r.id];
+        if (custom) {
+          const tList = Array.isArray(custom.trainings) ? custom.trainings : [];
+          countPlanning += tList.filter((t: any) => t.status === 'Planning').length;
+          countReady += tList.filter((t: any) => t.status === 'Ready').length;
+          countOngoing += tList.filter((t: any) => t.status === 'Ongoing').length;
+          countCompleted += tList.filter((t: any) => t.status === 'Completed').length;
+        } else {
+          if (r.status === 'Completed') countCompleted += r.training_count;
+          else if (r.status === 'Ongoing') countOngoing += r.training_count;
+          else if (r.status === 'Ready') countReady += r.training_count;
+          else countPlanning += r.training_count;
+        }
+      });
+
+      const totalBalance = totalGlobalRab - totalGlobalRealization;
+      const globalAbsorptionRate = totalGlobalRab > 0 ? Math.round((totalGlobalRealization / totalGlobalRab) * 100) : 0;
+      const globalProgress = totalTrainings > 0 ? Math.round((countCompleted / totalTrainings) * 100) : 0;
+
+      setSummary({
+        regency_count: updatedRegencies.length,
+        district_count: totalDistricts,
+        school_count: totalSchools,
+        training_count: totalTrainings,
+        status_counts: {
+          planning: countPlanning,
+          ready: countReady,
+          ongoing: countOngoing,
+          completed: countCompleted,
+        },
+        participants: {
+          target_teachers: totalTargetTeachers,
+          actual_teachers: totalActualTeachers,
+          teacher_rate: totalTargetTeachers > 0 ? Math.round((totalActualTeachers / totalTargetTeachers) * 100) : 0,
+          teacher_achievement_rate: totalTargetTeachers > 0 ? Math.round((totalActualTeachers / totalTargetTeachers) * 100) : 0,
+          target_students: totalTargetStudents,
+          actual_students: totalActualStudents,
+          student_rate: totalTargetStudents > 0 ? Math.round((totalActualStudents / totalTargetStudents) * 100) : 0,
+          student_achievement_rate: totalTargetStudents > 0 ? Math.round((totalActualStudents / totalTargetStudents) * 100) : 0,
+        },
+        financial: {
+          total_rab: totalGlobalRab,
+          total_realization: totalGlobalRealization,
+          balance: totalBalance,
+          absorption_rate: globalAbsorptionRate,
+        },
+        overall_progress: globalProgress,
+      });
+
+      // 3. Recalculate Attendance analytics
+      if (baseAttendance) {
+        const updatedByRegency = (baseAttendance.byRegency || []).map((br: any) => {
+          const custom = customDataMap[br.id];
+          if (!custom) return br;
+
+          const pList = Array.isArray(custom.participants) ? custom.participants : [];
+          const dList = Array.isArray(custom.districts) ? custom.districts : [];
+          const tTarget = dList.reduce((acc: number, d: any) => acc + (Number(d.target_teachers) || 0), 0);
+          const sTarget = dList.reduce((acc: number, d: any) => acc + (Number(d.target_students) || 0), 0);
+          const tActual = pList.filter((p: any) => p.participant_type === 'guru').length;
+          const sActual = pList.filter((p: any) => p.participant_type === 'siswa').length;
+          const tHadir = pList.filter((p: any) => p.participant_type === 'guru' && p.attendance_status === 'Hadir').length;
+          const sHadir = pList.filter((p: any) => p.participant_type === 'siswa' && p.attendance_status === 'Hadir').length;
+
+          return {
+            ...br,
+            teacher_target: tTarget,
+            teacher_actual: tActual,
+            teacher_hadir: tHadir,
+            teacher_rate: tTarget > 0 ? Math.round((tHadir / tTarget) * 100) : 0,
+            student_target: sTarget,
+            student_actual: sActual,
+            student_hadir: sHadir,
+            student_rate: sTarget > 0 ? Math.round((sHadir / sTarget) * 100) : 0,
+            overall_rate: (tTarget + sTarget) > 0 ? Math.round(((tHadir + sHadir) / (tTarget + sTarget)) * 100) : 0,
+          };
+        });
+
+        const clearedRegencyNames = new Set(
+          updatedRegencies.filter((r: any) => customDataMap[r.id] && (!customDataMap[r.id].districts || customDataMap[r.id].districts.length === 0)).map((r: any) => r.name)
+        );
+
+        const updatedByDistrict = (baseAttendance.byDistrict || []).filter((bd: any) => !clearedRegencyNames.has(bd.regency_name));
+
+        const sumTeacherTarget = updatedByRegency.reduce((acc: number, r: any) => acc + r.teacher_target, 0);
+        const sumTeacherHadir = updatedByRegency.reduce((acc: number, r: any) => acc + r.teacher_hadir, 0);
+        const sumStudentTarget = updatedByRegency.reduce((acc: number, r: any) => acc + r.student_target, 0);
+        const sumStudentHadir = updatedByRegency.reduce((acc: number, r: any) => acc + r.student_hadir, 0);
+
+        setAttendanceStats({
+          summary: {
+            teacher_target: sumTeacherTarget,
+            teacher_hadir: sumTeacherHadir,
+            teacher_rate: sumTeacherTarget > 0 ? Math.round((sumTeacherHadir / sumTeacherTarget) * 100) : 0,
+            student_target: sumStudentTarget,
+            student_hadir: sumStudentHadir,
+            student_rate: sumStudentTarget > 0 ? Math.round((sumStudentHadir / sumStudentTarget) * 100) : 0,
+            overall_rate: (sumTeacherTarget + sumStudentTarget) > 0 ? Math.round(((sumTeacherHadir + sumStudentHadir) / (sumTeacherTarget + sumStudentTarget)) * 100) : 0,
+          },
+          byRegency: updatedByRegency,
+          byDistrict: updatedByDistrict,
+        });
+      }
+
+      // 4. Update upcoming & attention items
+      const clearedRegencyIds = new Set(
+        updatedRegencies.filter((r: any) => customDataMap[r.id] && (!customDataMap[r.id].trainings || customDataMap[r.id].trainings.length === 0)).map((r: any) => r.id)
+      );
+      setUpcomingTrainings((initialUpcoming || []).filter((u: any) => !clearedRegencyIds.has(u.regency_id)));
+      setAttentionItems((initialAttention || []).filter((a: any) => !clearedRegencyIds.has(a.regency_id)));
+
+    } catch (err) {
+      console.warn('Dashboard sync error:', err);
+    }
+  }, [initialRegencies, initialSummary, initialAttendance, initialUpcoming, initialAttention]);
+
+  // Initial and reactive effect on mount, window focus, and storage event
   React.useEffect(() => {
-    fetchProgramSummary(globalFilter).then(setSummary);
-    fetchRegencies(globalFilter).then(setRegencies);
-    fetchAttendanceStats(globalFilter).then(setAttendanceStats);
-  }, [globalFilter]);
+    syncDashboardWithCustomData();
+
+    const handleSync = () => syncDashboardWithCustomData();
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
+  }, [syncDashboardWithCustomData]);
+
+  // When globalFilter changes in header or filter bar, fetch updated data and re-sync
+  React.useEffect(() => {
+    Promise.all([
+      fetchProgramSummary(globalFilter),
+      fetchRegencies(globalFilter),
+      fetchAttendanceStats(globalFilter),
+    ]).then(([newSummary, newRegencies, newAttendance]) => {
+      syncDashboardWithCustomData(newRegencies, newSummary, newAttendance);
+    });
+  }, [globalFilter, syncDashboardWithCustomData]);
 
   const handleSaveName = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -255,8 +494,8 @@ export default function DashboardClient({
 
           {/* Section 6: Operational Action Feeds (Upcoming, Attention, Audit) (#11, #12, #13) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <UpcomingTrainings trainings={initialUpcoming} />
-            <AttentionRequired items={initialAttention} />
+            <UpcomingTrainings trainings={upcomingTrainings} />
+            <AttentionRequired items={attentionItems} />
             <RecentActivity logs={initialLogs} />
           </div>
         </>
