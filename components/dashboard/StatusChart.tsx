@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   PieChart,
   Pie,
@@ -19,6 +19,9 @@ interface StatusChartProps {
 }
 
 export function StatusChart({ statusCounts }: StatusChartProps) {
+  // Pilihan posisi label persentase: 'dalam' (di dalam irisan donat) atau 'luar' (di luar lingkaran donat)
+  const [labelPosition, setLabelPosition] = useState<'dalam' | 'luar'>('dalam');
+
   const rawData = [
     { key: 'ongoing', name: 'Ongoing (Berjalan)', value: statusCounts.ongoing || 0, color: '#D97706', bgLight: 'bg-amber-50', textCol: 'text-amber-800', borderCol: 'border-amber-200' },
     { key: 'ready', name: 'Ready (Siap)', value: statusCounts.ready || 0, color: '#2563EB', bgLight: 'bg-blue-50', textCol: 'text-blue-800', borderCol: 'border-blue-200' },
@@ -39,33 +42,98 @@ export function StatusChart({ statusCounts }: StatusChartProps) {
 
   const activeSlices = data.filter(d => d.value > 0);
 
+  // Custom Label Renderer untuk Di Dalam Irisan
+  const renderInnerLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+    if (percent < 0.05) return null;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+    const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#ffffff"
+        textAnchor="middle"
+        dominantBaseline="central"
+        className="text-[11px] font-black pointer-events-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
+  // Custom Label Renderer untuk Di Luar Irisan
+  const renderOuterLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
+    if (percent < 0.04) return null;
+    const radius = outerRadius + 14;
+    const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+    const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#1e293b"
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
+        className="text-[10px] font-black pointer-events-none"
+      >
+        {`${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col h-full justify-between">
       <div>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
           <div>
             <h3 className="font-bold text-slate-900 text-sm">Status Program & Kegiatan</h3>
-            <p className="text-xs text-slate-500">Persentase status 23 distrik kegiatan</p>
+            <p className="text-xs text-slate-500">Distribusi status 23 distrik kegiatan</p>
           </div>
-          <span className="text-xs font-black px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg border border-slate-200">
-            Total: {total} Kegiatan
-          </span>
+
+          {/* Toggle Tombol Label Persentase: Di Dalam / Di Luar */}
+          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold self-start sm:self-auto">
+            <button
+              onClick={() => setLabelPosition('dalam')}
+              className={`px-2 py-1 rounded-md transition-all ${
+                labelPosition === 'dalam'
+                  ? 'bg-white text-emerald-800 shadow-2xs font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Tampilkan nilai persentase di dalam irisan donat"
+            >
+              Di Dalam
+            </button>
+            <button
+              onClick={() => setLabelPosition('luar')}
+              className={`px-2 py-1 rounded-md transition-all ${
+                labelPosition === 'luar'
+                  ? 'bg-white text-emerald-800 shadow-2xs font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Tampilkan nilai persentase di luar lingkaran donat"
+            >
+              Di Luar
+            </button>
+          </div>
         </div>
 
-        {/* Bagan Donat dengan Persentase di Tengah & Tooltip */}
-        <div className="w-full h-52 relative flex items-center justify-center">
+        {/* Bagan Donat dengan Persentase Langsung */}
+        <div className="w-full h-56 relative flex items-center justify-center">
           {total === 0 ? (
             <div className="text-slate-400 text-xs">Tidak ada data kegiatan</div>
           ) : (
             <>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <PieChart margin={{ top: 10, bottom: 10, left: 15, right: 15 }}>
                   <Pie
                     data={activeSlices}
-                    innerRadius={55}
-                    outerRadius={80}
+                    innerRadius={labelPosition === 'luar' ? 45 : 55}
+                    outerRadius={labelPosition === 'luar' ? 70 : 82}
                     paddingAngle={3}
                     dataKey="value"
+                    labelLine={labelPosition === 'luar'}
+                    label={labelPosition === 'dalam' ? renderInnerLabel : renderOuterLabel}
                   >
                     {activeSlices.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -99,7 +167,7 @@ export function StatusChart({ statusCounts }: StatusChartProps) {
         </div>
       </div>
 
-      {/* Rincian Donat dengan Nilai Persentase Eksplisit (#3) */}
+      {/* Rincian Donat dengan Nilai Persentase Eksplisit */}
       <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
         {data.map(item => (
           <div

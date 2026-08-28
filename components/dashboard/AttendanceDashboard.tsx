@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,7 +15,6 @@ import {
   Users,
   GraduationCap,
   Building2,
-  CalendarDays,
   Search,
   CheckCircle2,
   TrendingUp,
@@ -58,21 +57,6 @@ interface AttendanceAnalytics {
     student_rate: number;
     overall_rate: number;
   }>;
-  byTraining: Array<{
-    id: string;
-    venue: string;
-    regency_name: string;
-    district_name: string;
-    pic: string;
-    status: string;
-    teacher_target: number;
-    teacher_hadir: number;
-    teacher_rate: number;
-    student_target: number;
-    student_hadir: number;
-    student_rate: number;
-    overall_rate: number;
-  }>;
 }
 
 interface AttendanceDashboardProps {
@@ -80,12 +64,13 @@ interface AttendanceDashboardProps {
 }
 
 export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
-  const [viewMode, setViewMode] = useState<'kabupaten' | 'distrik' | 'kegiatan'>('kabupaten');
+  // Only 2 view modes: per kabupaten and per distrik (per kegiatan removed as requested)
+  const [viewMode, setViewMode] = useState<'kabupaten' | 'distrik'>('kabupaten');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { summary, byRegency, byDistrict, byTraining } = analytics;
+  const { summary, byRegency, byDistrict } = analytics;
 
-  // Prepare chart data according to viewMode
+  // Prepare line chart data according to viewMode
   let chartData: any[] = [];
   let tableRows: any[] = [];
 
@@ -113,8 +98,9 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
       studentRate: r.student_rate,
       overallRate: r.overall_rate,
     }));
-  } else if (viewMode === 'distrik') {
-    chartData = byDistrict.slice(0, 10).map(d => ({
+  } else {
+    // Per Distrik
+    chartData = byDistrict.slice(0, 12).map(d => ({
       name: d.name.length > 12 ? `${d.name.substring(0, 10)}...` : d.name,
       fullName: `Distrik ${d.name} (${d.regency_name})`,
       'Absensi Guru (%)': d.teacher_rate,
@@ -137,30 +123,6 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
       studentRate: d.student_rate,
       overallRate: d.overall_rate,
     }));
-  } else {
-    chartData = byTraining.slice(0, 8).map(t => ({
-      name: t.venue.length > 14 ? `${t.venue.substring(0, 12)}...` : t.venue,
-      fullName: `${t.venue} (${t.district_name})`,
-      'Absensi Guru (%)': t.teacher_rate,
-      'Absensi Siswa (%)': t.student_rate,
-      teacherHadir: t.teacher_hadir,
-      teacherTarget: t.teacher_target,
-      studentHadir: t.student_hadir,
-      studentTarget: t.student_target,
-      overallRate: t.overall_rate,
-    }));
-    tableRows = byTraining.map(t => ({
-      id: t.id,
-      title: t.venue,
-      subtitle: `${t.district_name}, ${t.regency_name}`,
-      teacherHadir: t.teacher_hadir,
-      teacherTarget: t.teacher_target,
-      teacherRate: t.teacher_rate,
-      studentHadir: t.student_hadir,
-      studentTarget: t.student_target,
-      studentRate: t.student_rate,
-      overallRate: t.overall_rate,
-    }));
   }
 
   const filteredRows = tableRows.filter(row =>
@@ -174,24 +136,24 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
               Absensi & Kehadiran GASING
             </span>
           </div>
           <h3 className="font-black text-slate-900 text-lg mt-1 flex items-center gap-2">
             <Users className="w-5 h-5 text-emerald-700" />
-            <span>Tabel & Grafik Absensi Guru dan Siswa</span>
+            <span>Tabel & Grafik Garis Absensi Guru dan Siswa</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Monitoring tingkat kehadiran guru dan siswa per Kabupaten, Distrik, dan Kegiatan Pelatihan
+            Tren grafik garis dan tabel rekapitulasi kehadiran per Kabupaten dan Distrik di Provinsi Papua Barat
           </p>
         </div>
 
-        {/* View Switcher: Kabupaten / Distrik / Kegiatan */}
+        {/* View Switcher: Hanya Per Kabupaten dan Per Distrik */}
         <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 shrink-0">
           <button
             onClick={() => setViewMode('kabupaten')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'kabupaten'
                 ? 'bg-white text-emerald-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -202,7 +164,7 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
           </button>
           <button
             onClick={() => setViewMode('distrik')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'distrik'
                 ? 'bg-white text-emerald-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -210,17 +172,6 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
           >
             <Building2 className="w-3.5 h-3.5" />
             <span>Per Distrik</span>
-          </button>
-          <button
-            onClick={() => setViewMode('kegiatan')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'kegiatan'
-                ? 'bg-white text-emerald-800 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CalendarDays className="w-3.5 h-3.5" />
-            <span>Per Kegiatan</span>
           </button>
         </div>
       </div>
@@ -276,18 +227,25 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
         </div>
       </div>
 
-      {/* Visual Chart: Perbandingan Kehadiran Guru vs Siswa */}
+      {/* Visual Chart: GRAFIK GARIS (Line Chart) Perbandingan Kehadiran Guru vs Siswa */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-            Grafik Perbandingan Kehadiran Guru vs Siswa ({viewMode === 'kabupaten' ? '7 Kabupaten' : viewMode === 'distrik' ? 'Distrik Terpilih' : 'Kegiatan Terpilih'})
+            Grafik Garis Tingkat Kehadiran Guru vs Siswa ({viewMode === 'kabupaten' ? '7 Kabupaten' : 'Distrik Terpilih'})
           </h4>
-          <span className="text-slate-400 text-xs font-medium">Satuan: Persentase (%)</span>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="flex items-center gap-1.5 font-medium text-amber-800">
+              <span className="w-3 h-1 bg-amber-600 rounded-full inline-block" /> Guru (%)
+            </span>
+            <span className="flex items-center gap-1.5 font-medium text-emerald-800">
+              <span className="w-3 h-1 bg-emerald-600 rounded-full inline-block" /> Siswa (%)
+            </span>
+          </div>
         </div>
 
         <div className="w-full h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+            <LineChart data={chartData} margin={{ top: 15, right: 15, left: -20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} unit="%" />
@@ -298,9 +256,23 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
                 itemStyle={{ color: '#fff' }}
               />
               <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px' }} />
-              <Bar dataKey="Absensi Guru (%)" fill="#D97706" radius={[6, 6, 0, 0]} maxBarSize={35} />
-              <Bar dataKey="Absensi Siswa (%)" fill="#059669" radius={[6, 6, 0, 0]} maxBarSize={35} />
-            </BarChart>
+              <Line
+                type="monotone"
+                dataKey="Absensi Guru (%)"
+                stroke="#D97706"
+                strokeWidth={3}
+                dot={{ r: 4, fill: '#D97706', strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ r: 7, strokeWidth: 2, stroke: '#fff' }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Absensi Siswa (%)"
+                stroke="#059669"
+                strokeWidth={3}
+                dot={{ r: 4, fill: '#059669', strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ r: 7, strokeWidth: 2, stroke: '#fff' }}
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -309,7 +281,7 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
       <div className="space-y-3 pt-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-            Tabel Rincian Absensi {viewMode === 'kabupaten' ? 'Per Kabupaten' : viewMode === 'distrik' ? 'Per Distrik' : 'Per Kegiatan'}
+            Tabel Rincian Absensi {viewMode === 'kabupaten' ? 'Per Kabupaten' : 'Per Distrik'}
           </h4>
           <div className="relative w-full sm:w-64">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -317,7 +289,7 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
               type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Cari wilayah / kegiatan..."
+              placeholder="Cari wilayah..."
               className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-600"
             />
           </div>
@@ -327,7 +299,7 @@ export function AttendanceDashboard({ analytics }: AttendanceDashboardProps) {
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
               <tr>
-                <th className="p-3">Nama {viewMode === 'kabupaten' ? 'Kabupaten' : viewMode === 'distrik' ? 'Distrik' : 'Kegiatan'}</th>
+                <th className="p-3">Nama {viewMode === 'kabupaten' ? 'Kabupaten' : 'Distrik'}</th>
                 <th className="p-3">Absensi Guru</th>
                 <th className="p-3">Absensi Siswa</th>
                 <th className="p-3">Rata-Rata Kehadiran</th>
