@@ -7,6 +7,7 @@ import { useApp } from '@/components/providers/AppProvider';
 import { getRolePermissions } from '@/lib/auth/session';
 import { getStatusBadgeClass } from '@/lib/utils/formatters';
 import { District, Regency } from '@/lib/types';
+import { getMergedDistricts } from '@/lib/utils/customStorageSync';
 import {
   Building2,
   Search,
@@ -26,8 +27,20 @@ export default function DistrikClient({ initialDistricts, regencies }: DistrikCl
   const perms = getRolePermissions(currentUser.role);
   const [search, setSearch] = useState('');
   const [regencyFilter, setRegencyFilter] = useState('');
+  const [districts, setDistricts] = useState<District[]>(initialDistricts);
 
-  const filtered = initialDistricts.filter(d => {
+  React.useEffect(() => {
+    const sync = () => setDistricts(getMergedDistricts(initialDistricts));
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialDistricts]);
+
+  const filtered = districts.filter(d => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase()) || d.coordinator.toLowerCase().includes(search.toLowerCase());
     const matchRegency = !regencyFilter || d.regency_id === regencyFilter;
     return matchSearch && matchRegency;
@@ -44,7 +57,7 @@ export default function DistrikClient({ initialDistricts, regencies }: DistrikCl
             <span>Master Data Distrik</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            23 distrik sasaran pelatihan berhitung GASING (Aturan: 1 distrik memiliki 1 kegiatan utama pelatihan)
+            {districts.length} distrik sasaran pelatihan berhitung GASING (Aturan: 1 distrik memiliki 1 kegiatan utama pelatihan)
           </p>
         </div>
       </div>

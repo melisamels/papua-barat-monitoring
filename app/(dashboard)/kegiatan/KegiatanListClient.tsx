@@ -7,6 +7,7 @@ import { useApp } from '@/components/providers/AppProvider';
 import { getRolePermissions } from '@/lib/auth/session';
 import { formatRupiah, formatDateIndo, getStatusBadgeClass } from '@/lib/utils/formatters';
 import { Training, Regency } from '@/lib/types';
+import { getMergedTrainings } from '@/lib/utils/customStorageSync';
 import {
   CalendarDays,
   Search,
@@ -27,8 +28,20 @@ export default function KegiatanListClient({ initialTrainings, regencies }: Kegi
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [regencyFilter, setRegencyFilter] = useState('');
+  const [trainings, setTrainings] = useState<Training[]>(initialTrainings);
 
-  const filtered = initialTrainings.filter(t => {
+  React.useEffect(() => {
+    const sync = () => setTrainings(getMergedTrainings(initialTrainings));
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialTrainings]);
+
+  const filtered = trainings.filter(t => {
     const matchSearch =
       t.venue.toLowerCase().includes(search.toLowerCase()) ||
       (t.district_name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -51,7 +64,7 @@ export default function KegiatanListClient({ initialTrainings, regencies }: Kegi
             <span>Kegiatan Pelatihan GASING</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Modul Utama: Monitoring jadwal, venue, target peserta, dan anggaran di 23 distrik Papua Barat
+            Monitoring jadwal, venue, target peserta, dan anggaran di {trainings.length} kegiatan aktif Papua Barat
           </p>
         </div>
 

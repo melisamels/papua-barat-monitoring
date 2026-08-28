@@ -11,6 +11,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
+import { getMergedTrainings } from '@/lib/utils/customStorageSync';
+
 interface LaporanClientProps {
   regencies: Regency[];
   trainings: Training[];
@@ -18,7 +20,7 @@ interface LaporanClientProps {
   settings: SystemSettings;
 }
 
-export default function LaporanClient({ regencies, trainings, initialSummary, settings }: LaporanClientProps) {
+export default function LaporanClient({ regencies, trainings: initialTrainings, initialSummary, settings }: LaporanClientProps) {
   const [reportType, setReportType] = useState<
     'kegiatan' | 'kabupaten' | 'bulanan' | 'tahunan' | 'keseluruhan'
   >('keseluruhan');
@@ -27,6 +29,18 @@ export default function LaporanClient({ regencies, trainings, initialSummary, se
   const [month, setMonth] = useState('');
   const [regencyId, setRegencyId] = useState('');
   const [status, setStatus] = useState('');
+  const [trainings, setTrainings] = useState<Training[]>(initialTrainings);
+
+  React.useEffect(() => {
+    const sync = () => setTrainings(getMergedTrainings(initialTrainings));
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialTrainings]);
 
   // Filtered trainings for report preview
   const filteredTrainings = useMemo(() => {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { formatRupiah } from '@/lib/utils/formatters';
 import { Training, Regency } from '@/lib/types';
+import { getMergedTrainings } from '@/lib/utils/customStorageSync';
 import { Wallet, Search, ExternalLink } from 'lucide-react';
 
 interface KeuanganRabClientProps {
@@ -15,8 +16,20 @@ interface KeuanganRabClientProps {
 export default function KeuanganRabClient({ initialTrainings, regencies }: KeuanganRabClientProps) {
   const [search, setSearch] = useState('');
   const [regencyFilter, setRegencyFilter] = useState('');
+  const [trainings, setTrainings] = useState<Training[]>(initialTrainings);
 
-  const filtered = initialTrainings.filter(t => {
+  React.useEffect(() => {
+    const sync = () => setTrainings(getMergedTrainings(initialTrainings));
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialTrainings]);
+
+  const filtered = trainings.filter(t => {
     const matchSearch = t.venue.toLowerCase().includes(search.toLowerCase()) || (t.district_name || '').toLowerCase().includes(search.toLowerCase());
     const matchRegency = !regencyFilter || t.regency_id === regencyFilter;
     return matchSearch && matchRegency;

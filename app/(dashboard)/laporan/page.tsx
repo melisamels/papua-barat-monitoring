@@ -2,6 +2,9 @@ import React from 'react';
 import { getProgramSummary, getRegencies, getTrainings, getSystemSettings } from '@/lib/db/queries';
 import LaporanClient from './LaporanClient';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function LaporanPage() {
   const regencies = getRegencies();
   const trainings = getTrainings();

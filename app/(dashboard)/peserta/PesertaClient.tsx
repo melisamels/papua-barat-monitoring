@@ -6,6 +6,7 @@ import { actionCreateParticipant, actionBatchCreateParticipants, fetchParticipan
 import { useApp } from '@/components/providers/AppProvider';
 import { getRolePermissions } from '@/lib/auth/session';
 import { Participant, ParticipantType, School } from '@/lib/types';
+import { getMergedParticipants, getMergedSchools } from '@/lib/utils/customStorageSync';
 import {
   Users,
   Search,
@@ -43,6 +44,21 @@ export default function PesertaClient({ initialParticipants, schools }: PesertaC
   const [csvRawText, setCsvRawText] = useState('');
 
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
+  const [activeSchools, setActiveSchools] = useState<School[]>(schools);
+
+  React.useEffect(() => {
+    const sync = () => {
+      setParticipants(getMergedParticipants(initialParticipants));
+      setActiveSchools(getMergedSchools(schools));
+    };
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialParticipants, schools]);
 
   const filtered = participants.filter(p => {
     const matchSearch = p.full_name.toLowerCase().includes(search.toLowerCase()) || (p.school_name || '').toLowerCase().includes(search.toLowerCase());
@@ -304,7 +320,7 @@ export default function PesertaClient({ initialParticipants, schools }: PesertaC
                   onChange={(e) => setSchoolId(e.target.value)}
                   className="w-full p-2.5 border border-slate-200 rounded-xl"
                 >
-                  {schools.map(s => (
+                  {activeSchools.map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({s.school_level})</option>
                   ))}
                 </select>

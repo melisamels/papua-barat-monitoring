@@ -5,6 +5,7 @@ import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useApp } from '@/components/providers/AppProvider';
 import { getRolePermissions } from '@/lib/auth/session';
 import { School, Regency, District } from '@/lib/types';
+import { getMergedSchools } from '@/lib/utils/customStorageSync';
 import {
   GraduationCap,
   Search,
@@ -23,8 +24,20 @@ export default function SekolahClient({ initialSchools, regencies, districts }: 
   const perms = getRolePermissions(currentUser.role);
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
+  const [schools, setSchools] = useState<School[]>(initialSchools);
 
-  const filtered = initialSchools.filter(s => {
+  React.useEffect(() => {
+    const sync = () => setSchools(getMergedSchools(initialSchools));
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialSchools]);
+
+  const filtered = schools.filter(s => {
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.principal.toLowerCase().includes(search.toLowerCase());
     const matchLevel = !levelFilter || s.school_level === levelFilter;
     return matchSearch && matchLevel;
@@ -41,7 +54,7 @@ export default function SekolahClient({ initialSchools, regencies, districts }: 
             <span>Master Data Sekolah</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Data sekolah asal peserta guru dan siswa dalam Program GASING di Papua Barat
+            Data {schools.length} sekolah asal peserta guru dan siswa dalam Program GASING di Papua Barat
           </p>
         </div>
       </div>

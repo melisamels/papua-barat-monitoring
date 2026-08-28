@@ -2,6 +2,9 @@ import React from 'react';
 import { getSchools, getRegencies, getDistricts } from '@/lib/db/queries';
 import SekolahClient from './SekolahClient';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function SekolahPage() {
   const schools = getSchools();
   const regencies = getRegencies();

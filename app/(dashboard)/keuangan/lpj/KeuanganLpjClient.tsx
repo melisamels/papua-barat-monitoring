@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { formatRupiah } from '@/lib/utils/formatters';
 import { Training } from '@/lib/types';
+import { getMergedTrainings } from '@/lib/utils/customStorageSync';
 import { FileCheck2, Search, ExternalLink } from 'lucide-react';
 
 interface KeuanganLpjClientProps {
@@ -14,8 +15,20 @@ interface KeuanganLpjClientProps {
 export default function KeuanganLpjClient({ initialTrainings }: KeuanganLpjClientProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [trainings, setTrainings] = useState<Training[]>(initialTrainings);
 
-  const filtered = initialTrainings.filter(t => {
+  React.useEffect(() => {
+    const sync = () => setTrainings(getMergedTrainings(initialTrainings));
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [initialTrainings]);
+
+  const filtered = trainings.filter(t => {
     const matchSearch = t.venue.toLowerCase().includes(search.toLowerCase()) || (t.district_name || '').toLowerCase().includes(search.toLowerCase()) || (t.regency_name || '').toLowerCase().includes(search.toLowerCase());
     const matchStatus = !statusFilter || (statusFilter === '100' ? (t.lpj_completeness || 0) === 100 : (t.lpj_completeness || 0) < 100);
     return matchSearch && matchStatus;
