@@ -19,7 +19,7 @@ interface StatusChartProps {
 }
 
 export function StatusChart({ statusCounts }: StatusChartProps) {
-  // Pilihan posisi label persentase: 'dalam' (di dalam irisan donat) atau 'luar' (di luar lingkaran donat)
+  // Pilihan posisi label persentase pada diagram donat: 'dalam' (di dalam irisan donat) atau 'luar' (di luar lingkaran donat)
   const [labelPosition, setLabelPosition] = useState<'dalam' | 'luar'>('dalam');
 
   const rawData = [
@@ -42,7 +42,7 @@ export function StatusChart({ statusCounts }: StatusChartProps) {
 
   const activeSlices = data.filter(d => d.value > 0);
 
-  // Custom Label Renderer untuk Di Dalam Irisan
+  // Custom Label Renderer untuk Di Dalam Irisan Donat (Hanya Persentase %)
   const renderInnerLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     if (percent < 0.05) return null;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -55,14 +55,14 @@ export function StatusChart({ statusCounts }: StatusChartProps) {
         fill="#ffffff"
         textAnchor="middle"
         dominantBaseline="central"
-        className="text-[11px] font-black pointer-events-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+        className="text-[12px] font-black pointer-events-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
       >
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     );
   };
 
-  // Custom Label Renderer untuk Di Luar Irisan
+  // Custom Label Renderer untuk Di Luar Irisan Donat (Hanya Persentase %)
   const renderOuterLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
     if (percent < 0.04) return null;
     const radius = outerRadius + 14;
@@ -75,9 +75,9 @@ export function StatusChart({ statusCounts }: StatusChartProps) {
         fill="#1e293b"
         textAnchor={x > cx ? 'start' : 'end'}
         dominantBaseline="central"
-        className="text-[10px] font-black pointer-events-none"
+        className="text-[11px] font-black pointer-events-none"
       >
-        {`${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
+        {`${(percent * 100).toFixed(0)}%`}
       </text>
     );
   };
@@ -118,7 +118,7 @@ export function StatusChart({ statusCounts }: StatusChartProps) {
           </div>
         </div>
 
-        {/* Bagan Donat dengan Persentase Langsung */}
+        {/* Bagan Donat dengan Nilai Persentase Langsung pada Diagram */}
         <div className="w-full h-56 relative flex items-center justify-center">
           {total === 0 ? (
             <div className="text-slate-400 text-xs">Tidak ada data kegiatan</div>
@@ -167,22 +167,19 @@ export function StatusChart({ statusCounts }: StatusChartProps) {
         </div>
       </div>
 
-      {/* Rincian Donat dengan Nilai Persentase Eksplisit */}
+      {/* Rincian Status (Nilai persentase dihilangkan di sini, hanya ada pada diagram donat) */}
       <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
         {data.map(item => (
           <div
             key={item.key}
-            className={`p-2 rounded-xl border ${item.bgLight} ${item.borderCol} flex items-center justify-between`}
+            className={`p-2.5 rounded-xl border ${item.bgLight} ${item.borderCol} flex items-center justify-between`}
           >
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
               <span className="font-semibold text-[11px] text-slate-700 truncate">{item.name.split(' ')[0]}</span>
             </div>
             <div className="text-right shrink-0">
-              <span className="font-black text-xs text-slate-900 mr-1">{item.value}</span>
-              <span className={`text-[11px] font-extrabold px-1.5 py-0.5 rounded-md bg-white/80 ${item.textCol} border border-black/5 shadow-2xs`}>
-                {item.percentage}
-              </span>
+              <span className="font-black text-xs text-slate-900">{item.value} <span className="text-[10px] font-normal text-slate-500">Kegiatan</span></span>
             </div>
           </div>
         ))}
