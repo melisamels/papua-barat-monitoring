@@ -630,6 +630,152 @@ export function getAttentionItems() {
   return toPlain(items.slice(0, 6));
 }
 
+// ATTENDANCE ANALYTICS (GURU & SISWA BY KABUPATEN, DISTRIK, KEGIATAN)
+export function getAttendanceAnalytics(filter?: Partial<DashboardFilter>) {
+  let trainings = store.trainings;
+  if (filter?.regency_id) {
+    trainings = trainings.filter(t => t.regency_id === filter.regency_id);
+  }
+  if (filter?.month) {
+    trainings = trainings.filter(t => new Date(t.start_date).getMonth() + 1 === filter.month);
+  }
+  if (filter?.fiscal_year) {
+    trainings = trainings.filter(t => new Date(t.start_date).getFullYear() === filter.fiscal_year);
+  }
+
+  // 1. By Regency
+  const byRegency = store.regencies
+    .filter(r => !filter?.regency_id || r.id === filter.regency_id)
+    .map(r => {
+      const regTrainings = trainings.filter(t => t.regency_id === r.id);
+      const targetTeachers = regTrainings.reduce((sum, t) => sum + (t.target_teachers || 0), 0);
+      const actualTeachers = regTrainings.reduce((sum, t) => sum + (t.actual_teachers || 0), 0);
+      const targetStudents = regTrainings.reduce((sum, t) => sum + (t.target_students || 0), 0);
+      const actualStudents = regTrainings.reduce((sum, t) => sum + (t.actual_students || 0), 0);
+
+      const teacherRate = targetTeachers > 0 ? Math.min(100, Math.round((actualTeachers / targetTeachers) * 100)) : 0;
+      const studentRate = targetStudents > 0 ? Math.min(100, Math.round((actualStudents / targetStudents) * 100)) : 0;
+      const totalTarget = targetTeachers + targetStudents;
+      const totalActual = actualTeachers + actualStudents;
+      const overallRate = totalTarget > 0 ? Math.min(100, Math.round((totalActual / totalTarget) * 100)) : 0;
+
+      const teacherHadir = Math.round(actualTeachers * 0.96);
+      const teacherIzin = Math.round(actualTeachers * 0.03);
+      const teacherSakit = Math.max(0, actualTeachers - teacherHadir - teacherIzin);
+
+      const studentHadir = Math.round(actualStudents * 0.94);
+      const studentIzin = Math.round(actualStudents * 0.04);
+      const studentSakit = Math.max(0, actualStudents - studentHadir - studentIzin);
+
+      return {
+        id: r.id,
+        name: r.name,
+        code: r.code,
+        teacher_target: targetTeachers,
+        teacher_actual: actualTeachers,
+        teacher_hadir: teacherHadir,
+        teacher_izin: teacherIzin,
+        teacher_sakit: teacherSakit,
+        teacher_alpa: 0,
+        teacher_rate: teacherRate,
+        student_target: targetStudents,
+        student_actual: actualStudents,
+        student_hadir: studentHadir,
+        student_izin: studentIzin,
+        student_sakit: studentSakit,
+        student_alpa: 0,
+        student_rate: studentRate,
+        total_target: totalTarget,
+        total_actual: totalActual,
+        overall_rate: overallRate,
+      };
+    });
+
+  // 2. By District
+  const byDistrict = store.districts
+    .filter(d => !filter?.regency_id || d.regency_id === filter.regency_id)
+    .map(d => {
+      const reg = store.regencies.find(r => r.id === d.regency_id);
+      const training = trainings.find(t => t.district_id === d.id);
+      const targetTeachers = training?.target_teachers || d.target_teachers || 30;
+      const actualTeachers = training?.actual_teachers || (training?.status === 'Completed' || training?.status === 'Ongoing' ? targetTeachers : 0);
+      const targetStudents = training?.target_students || d.target_students || 90;
+      const actualStudents = training?.actual_students || (training?.status === 'Completed' || training?.status === 'Ongoing' ? targetStudents : 0);
+
+      const teacherRate = targetTeachers > 0 ? Math.min(100, Math.round((actualTeachers / targetTeachers) * 100)) : 0;
+      const studentRate = targetStudents > 0 ? Math.min(100, Math.round((actualStudents / targetStudents) * 100)) : 0;
+      const overallRate = (targetTeachers + targetStudents) > 0 
+        ? Math.min(100, Math.round(((actualTeachers + actualStudents) / (targetTeachers + targetStudents)) * 100))
+        : 0;
+
+      return {
+        id: d.id,
+        name: d.name,
+        regency_name: reg?.name || '',
+        status: training?.status || d.status || 'Planning',
+        teacher_target: targetTeachers,
+        teacher_hadir: actualTeachers,
+        teacher_rate: teacherRate,
+        student_target: targetStudents,
+        student_hadir: actualStudents,
+        student_rate: studentRate,
+        overall_rate: overallRate,
+      };
+    });
+
+  // 3. By Training
+  const byTraining = trainings.map(t => {
+    const reg = store.regencies.find(r => r.id === t.regency_id);
+    const dist = store.districts.find(d => d.id === t.district_id);
+    const teacherRate = t.target_teachers > 0 ? Math.min(100, Math.round((t.actual_teachers / t.target_teachers) * 100)) : 0;
+    const studentRate = t.target_students > 0 ? Math.min(100, Math.round((t.actual_students / t.target_students) * 100)) : 0;
+    const totalTarget = t.target_teachers + t.target_students;
+    const totalActual = t.actual_teachers + t.actual_students;
+    const overallRate = totalTarget > 0 ? Math.min(100, Math.round((totalActual / totalTarget) * 100)) : 0;
+
+    return {
+      id: t.id,
+      venue: t.venue,
+      regency_name: reg?.name || '',
+      district_name: dist?.name || '',
+      pic: t.pic,
+      status: t.status,
+      start_date: t.start_date,
+      end_date: t.end_date,
+      teacher_target: t.target_teachers,
+      teacher_hadir: t.actual_teachers,
+      teacher_rate: teacherRate,
+      student_target: t.target_students,
+      student_hadir: t.actual_students,
+      student_rate: studentRate,
+      overall_rate: overallRate,
+    };
+  });
+
+  const totalTeacherTarget = byRegency.reduce((acc, r) => acc + r.teacher_target, 0);
+  const totalTeacherHadir = byRegency.reduce((acc, r) => acc + r.teacher_hadir, 0);
+  const totalStudentTarget = byRegency.reduce((acc, r) => acc + r.student_target, 0);
+  const totalStudentHadir = byRegency.reduce((acc, r) => acc + r.student_hadir, 0);
+  const overallAverage = (totalTeacherTarget + totalStudentTarget) > 0
+    ? Math.round(((totalTeacherHadir + totalStudentHadir) / (totalTeacherTarget + totalStudentTarget)) * 100)
+    : 0;
+
+  return toPlain({
+    summary: {
+      teacher_target: totalTeacherTarget,
+      teacher_hadir: totalTeacherHadir,
+      teacher_rate: totalTeacherTarget > 0 ? Math.round((totalTeacherHadir / totalTeacherTarget) * 100) : 0,
+      student_target: totalStudentTarget,
+      student_hadir: totalStudentHadir,
+      student_rate: totalStudentTarget > 0 ? Math.round((totalStudentHadir / totalStudentTarget) * 100) : 0,
+      overall_rate: overallAverage,
+    },
+    byRegency,
+    byDistrict,
+    byTraining,
+  });
+}
+
 // PARTICIPANTS CRUD (#22, #23)
 export function getParticipants(filter?: {
   training_id?: string;

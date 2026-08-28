@@ -5,6 +5,7 @@ import {
   getUpcomingTrainings,
   getAttentionItems,
   getAuditLogs,
+  getAttendanceAnalytics,
 } from '@/lib/db/queries';
 import DashboardClient from '@/components/dashboard/DashboardClient';
 
@@ -14,6 +15,7 @@ export default async function DashboardPage() {
   const upcomingTrainings = getUpcomingTrainings(5);
   const attentionItems = getAttentionItems();
   const recentLogs = getAuditLogs(10);
+  const attendanceAnalytics = getAttendanceAnalytics();
 
   return (
     <DashboardClient
@@ -22,6 +24,7 @@ export default async function DashboardPage() {
       initialUpcoming={upcomingTrainings}
       initialAttention={attentionItems}
       initialLogs={recentLogs}
+      initialAttendance={attendanceAnalytics}
     />
   );
 }

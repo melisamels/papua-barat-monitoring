@@ -43,6 +43,10 @@ export async function fetchUpcomingTrainings(limit?: number) {
   return queries.getUpcomingTrainings(limit);
 }
 
+export async function fetchAttendanceStats(filter?: Partial<DashboardFilter>) {
+  return queries.getAttendanceAnalytics(filter);
+}
+
 export async function fetchAttentionItems() {
   return queries.getAttentionItems();
 }
