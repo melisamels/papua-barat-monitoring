@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { actionUpdateSystemSettings } from '@/app/actions/data';
+import { actionUpdateSystemSettings, actionSyncRegencyData } from '@/app/actions/data';
 import { useApp } from '@/components/providers/AppProvider';
 import { SystemSettings } from '@/lib/types';
-import { Settings, Save, Building, FileText, Bell } from 'lucide-react';
+import { Settings, Save, Building, FileText, Bell, Database, Download, Upload } from 'lucide-react';
 
 interface PengaturanClientProps {
   initialSettings: SystemSettings;
@@ -22,6 +22,91 @@ export default function PengaturanClient({ initialSettings }: PengaturanClientPr
   const [signatoryTitle, setSignatoryTitle] = useState(initialSettings.report_signatory_title);
   const [reportFooter, setReportFooter] = useState(initialSettings.report_footer);
   const [remindersEnabled, setRemindersEnabled] = useState(initialSettings.reminders_enabled);
+
+  const handleExportData = () => {
+    try {
+      const regencyIds = ['reg-mkw', 'reg-mansel', 'reg-pegarfak', 'reg-bintuni', 'reg-wondama', 'reg-fakfak', 'reg-kaimana'];
+      const regencyData: Record<string, any> = {};
+
+      for (const id of regencyIds) {
+        const saved = localStorage.getItem(`papua_regency_custom_v1_${id}`);
+        if (saved) {
+          try {
+            regencyData[id] = JSON.parse(saved);
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      const backupObj = {
+        app: 'papua-barat-monitoring',
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        regency_data: regencyData,
+      };
+
+      const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cadangan_gasing_papua_barat_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('Cadangan data berhasil diunduh!');
+    } catch (e: any) {
+      showToast('Gagal mengekspor data: ' + e.message, 'error');
+    }
+  };
+
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+
+        if (parsed.app !== 'papua-barat-monitoring' || !parsed.regency_data) {
+          throw new Error('Berkas cadangan tidak valid.');
+        }
+
+        const dataMap = parsed.regency_data;
+        const regencyIds = Object.keys(dataMap);
+        let count = 0;
+
+        for (const id of regencyIds) {
+          const item = dataMap[id];
+          if (item && item.is_customized) {
+            localStorage.setItem(`papua_regency_custom_v1_${id}`, JSON.stringify(item));
+            
+            // Sync with serverless backend
+            await actionSyncRegencyData(id, {
+              districts: item.districts || [],
+              schools: item.schools || [],
+              trainings: item.trainings || [],
+              participants: item.participants || [],
+              budgets: item.budgets || [],
+              realizations: item.realizations || [],
+            });
+            count++;
+          }
+        }
+
+        showToast(`Berhasil memulihkan ${count} data wilayah! Mengalihkan ke dashboard...`);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+      } catch (err: any) {
+        showToast('Gagal mengimpor data: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,6 +243,62 @@ export default function PengaturanClient({ initialSettings }: PengaturanClientPr
               onChange={(e) => setRemindersEnabled(e.target.checked)}
               className="w-5 h-5 accent-emerald-700 cursor-pointer"
             />
+          </div>
+        </div>
+
+        {/* Section 4: Cadangan & Pemulihan Data */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+            <Database className="w-4 h-4 text-emerald-700" />
+            <span>4. Cadangan & Pemulihan Data (Backup & Restore)</span>
+          </h3>
+
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Gunakan fitur ini untuk memindahkan data antar laptop/perangkat atau mengamankan data Anda dari reset server otomatis di layanan cloud (seperti Vercel). Ekspor cadangan ke file JSON, lalu impor kembali di browser mana pun untuk sinkronisasi instan.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="p-4 border border-slate-100 bg-slate-50 rounded-xl flex flex-col justify-between gap-3">
+              <div>
+                <h4 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                  <Download className="w-4 h-4 text-emerald-700" />
+                  <span>Unduh Cadangan Data</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                  Unduh seluruh perubahan riil (distrik, sekolah, kegiatan, peserta, RAB, dan realisasi) yang telah Anda lakukan ke dalam satu file cadangan (.json).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportData}
+                className="w-full py-2 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Unduh File Cadangan (.json)</span>
+              </button>
+            </div>
+
+            <div className="p-4 border border-slate-100 bg-slate-50 rounded-xl flex flex-col justify-between gap-3">
+              <div>
+                <h4 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                  <Upload className="w-4 h-4 text-amber-700" />
+                  <span>Puluhkan dari Cadangan</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                  Pilih file cadangan (.json) yang telah Anda unduh sebelumnya untuk memulihkan seluruh data dan menyinkronkan server seketika.
+                </p>
+              </div>
+              <label className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Pilih & Unggah File Cadangan</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportData}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
         </div>
 
